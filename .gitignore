@@ -36,5 +36,14 @@ yarn-error.log*
 **/public/sw.js
 **/public/workbox-*.js
 
+# Playwright / screenshots
+.playwright-mcp/
+**/.playwright-mcp/
+*.png
+!apps/web/public/icon.svg
+
 # Claude Code internal
 .claude/
+
+# TypeScript build info
+*.tsbuildinfo
