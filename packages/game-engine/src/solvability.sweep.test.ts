@@ -34,12 +34,7 @@ describe('architecture quest solvability', () => {
       const cacheOptions = [null, ...caches];
 
       let solved = false;
-      let best: { grade: string; res: ReturnType<typeof gradeArchitecture> } | null = null;
-      const track = (res: ReturnType<typeof gradeArchitecture>) => {
-        if (!best || res.grade > best.grade || (res.grade === best.grade && res.targetChecks && countTrue(res) > countTrue(best.res))) {
-          best = { grade: res.grade, res };
-        }
-      };
+      let best: ReturnType<typeof gradeArchitecture> | null = null;
 
       for (const edge of edgeOptions) {
         for (const app of apps) {
@@ -75,7 +70,9 @@ describe('architecture quest solvability', () => {
                     }
 
                     const res = gradeArchitecture(quest, { nodes, edges });
-                    track(res);
+                    if (!best || res.grade > best.grade || (res.grade === best.grade && countTrue(res) > countTrue(best))) {
+                      best = res;
+                    }
                     if (res.passed) solved = true;
                   }
                 }
@@ -86,12 +83,12 @@ describe('architecture quest solvability', () => {
       }
 
       if (!solved && best) {
-        const m = best.res.metrics;
+        const m = best.metrics;
         console.error(
-          `UNSOLVABLE ${quest.id}: grade=${best.res.grade} lat=${m.latencyP95}(≤${quest.target.maxLatencyP95}) ` +
+          `UNSOLVABLE ${quest.id}: grade=${best.grade} lat=${m.latencyP95}(≤${quest.target.maxLatencyP95}) ` +
             `cost=${m.costPerMonth}(≤${quest.target.maxCostPerMonth}) avail=${m.availability.toFixed(5)}(≥${quest.target.minAvailability}) ` +
-            `thru=${m.maxThroughput}(≥${quest.target.minRps}) checks=${JSON.stringify(best.res.targetChecks)} ` +
-            `missing=[${best.res.missingTypes.join(',')}] traffic=${quest.traffic.rps}rps readRatio=${quest.traffic.readRatio}`,
+            `thru=${m.maxThroughput}(≥${quest.target.minRps}) checks=${JSON.stringify(best.targetChecks)} ` +
+            `missing=[${best.missingTypes.join(',')}] traffic=${quest.traffic.rps}rps readRatio=${quest.traffic.readRatio}`,
         );
       }
       expect(solved, `quest ${quest.id} has no passing topology`).toBe(true);

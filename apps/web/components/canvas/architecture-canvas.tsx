@@ -21,7 +21,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { COMPONENT_BY_ID, type ComponentDef, type Topology } from '@sd-game/content';
 import { ComponentNode } from './component-node';
-import { Trash2, Plus, Minus, Zap } from 'lucide-react';
+import { Trash2, Plus, Minus, Zap, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/primitives';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +42,8 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Tap-to-connect mode (robust on touch + mouse): pick a source, then tap a target.
+  const [linkSourceId, setLinkSourceId] = useState<string | null>(null);
 
   // Hydrate from a saved topology on mount.
   useEffect(() => {
@@ -83,6 +85,28 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
           eds,
         ),
       );
+    },
+    [setEdges],
+  );
+
+  // Tap-to-connect: link the currently-selected source to a tapped target node.
+  const linkNodes = useCallback(
+    (sourceId: string, targetId: string) => {
+      if (sourceId === targetId) return;
+      setEdges((eds) => {
+        // Avoid duplicate edges between the same pair/direction.
+        if (eds.some((e) => e.source === sourceId && e.target === targetId)) return eds;
+        return addEdge(
+          {
+            id: nextId(),
+            source: sourceId,
+            target: targetId,
+            type: 'smoothstep',
+            markerEnd: { type: MarkerType.ArrowClosed },
+          },
+          eds,
+        );
+      });
     },
     [setEdges],
   );
@@ -193,8 +217,20 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             nodeTypes={nodeTypes}
-            onNodeClick={(_, node) => setSelectedId(node.id)}
-            onPaneClick={() => setSelectedId(null)}
+            onNodeClick={(_, node) => {
+              if (linkSourceId) {
+                // Complete tap-to-connect.
+                linkNodes(linkSourceId, node.id);
+                setLinkSourceId(null);
+                setSelectedId(node.id);
+              } else {
+                setSelectedId(node.id);
+              }
+            }}
+            onPaneClick={() => {
+              setSelectedId(null);
+              setLinkSourceId(null);
+            }}
             fitView
             fitViewOptions={{ padding: 0.3 }}
             proOptions={{ hideAttribution: true }}
@@ -210,11 +246,39 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
             />
           </ReactFlow>
 
+          {/* Link-mode banner (tap-to-connect) */}
+          {linkSourceId && (
+            <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-accent/40 bg-accent/15 px-4 py-1.5 text-xs font-medium text-accent-soft backdrop-blur">
+              Tap a target node to connect ·{' '}
+              <button
+                onClick={() => setLinkSourceId(null)}
+                className="underline hover:text-white"
+              >
+                cancel
+              </button>
+            </div>
+          )}
+
           {/* Selected-node editor */}
           {selectedDef && selectedNode && (
-            <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl border border-white/10 bg-bg-card/95 p-2 backdrop-blur">
+            <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-bg-card/95 p-2 backdrop-blur">
               <span className="text-lg">{selectedDef.icon}</span>
               <span className="text-sm font-medium">{selectedDef.name}</span>
+              <button
+                onClick={() => {
+                  setLinkSourceId(selectedNode.id);
+                  setSelectedId(null);
+                }}
+                className={cn(
+                  'flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium',
+                  linkSourceId === selectedNode.id
+                    ? 'bg-accent text-white'
+                    : 'bg-white/5 text-accent-soft hover:bg-white/10',
+                )}
+                title="Tap-to-connect: choose this as the source, then tap a target"
+              >
+                <Link2 className="h-3.5 w-3.5" /> Connect
+              </button>
               <div className="flex items-center gap-1 rounded-lg bg-white/5 p-0.5">
                 <button
                   onClick={() => updateReplicas(selectedNode.id, -1)}
@@ -245,7 +309,7 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="flex flex-col items-center gap-2 text-gray-500">
                 <Zap className="h-6 w-6" />
-                <span className="text-sm">Tap a component to add it, then drag to connect.</span>
+                <span className="text-sm">Tap a component to add it. Connect with drag, or tap a node → Connect → tap target.</span>
               </div>
             </div>
           )}

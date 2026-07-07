@@ -33,7 +33,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # PWA
-**/public/sw.js
+# (sw.js is hand-authored source — committed. Only ignore generated workbox bundles.)
 **/public/workbox-*.js
 
 # Playwright / screenshots

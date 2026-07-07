@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { HydrateProvider } from '@/components/providers/hydrate-provider';
+import { RegisterSW } from '@/components/providers/register-sw';
 
 export const metadata: Metadata = {
   title: 'SD-GAME — System Design 0→Hero',
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark">
       <body className="font-sans antialiased min-h-screen">
         <HydrateProvider>{children}</HydrateProvider>
+        <RegisterSW />
       </body>
     </html>
   );
