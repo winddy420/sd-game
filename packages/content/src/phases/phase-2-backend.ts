@@ -529,7 +529,7 @@ export const PHASE_2_QUESTS: Quest[] = [
         hint: '`-d` detaches, `--name api` names the container, `-p 8080:3000` maps host:container ports.',
       },
       {
-        prompt: 'Confirm the service is up by making an HTTP GET to the health endpoint on localhost:8080/health (show response headers only).',
+        prompt: 'Confirm the service is up by making an HTTP HEAD request to the health endpoint on localhost:8080/health (show response headers only).',
         acceptedPatterns: [
           '^curl\\s+.*-I.*localhost:8080/health',
           '^curl\\s+.*--head.*localhost:8080/health',

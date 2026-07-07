@@ -154,9 +154,9 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
     : null;
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[180px_1fr]">
+    <div className="grid min-w-0 gap-3 lg:grid-cols-[180px_1fr]">
       {/* Palette */}
-      <div className="order-2 lg:order-1">
+      <div className="order-2 min-w-0 lg:order-1">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
           Components
         </div>
@@ -184,8 +184,8 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
       </div>
 
       {/* Canvas */}
-      <div className="order-1 lg:order-2">
-        <div className="relative h-[420px] overflow-hidden rounded-2xl border border-white/10 bg-bg-soft">
+      <div className="order-1 min-w-0 lg:order-2">
+        <div className="relative h-[420px] w-full overflow-hidden rounded-2xl border border-white/10 bg-bg-soft">
           <ReactFlow
             nodes={nodes}
             edges={edges}

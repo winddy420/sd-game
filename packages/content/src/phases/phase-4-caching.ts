@@ -72,7 +72,7 @@ When the cache hits its memory limit, something has to go. Common policies:
 - **FIFO**: evict oldest insertion regardless of access. Rarely used alone.
 - **Random**: evict a random key. Surprisingly competitive under uniform access.
 
-Redis default is **allkeys-lru**. Memcached defaults to LRU. Pick LFU only if your traffic has a clear, stable "celebrity" set.
+Redis default is **noeviction** (writes fail once memory is full) — turn on allkeys-lru explicitly to enable LRU eviction. Memcached defaults to LRU. Pick LFU only if your traffic has a clear, stable "celebrity" set.
 
 ## The two hard problems, revisited
 1. **Cache invalidation** — keeping the cache consistent with the DB without missing a write.
@@ -315,7 +315,7 @@ export const PHASE_4_QUESTS: Quest[] = [
       {
         prompt:
           'Inspect the server stats to confirm the hit counter is climbing (use the command that returns general information, including keyspace_hits).',
-        acceptedPatterns: ['^INFO\\s+stats\\b', '^INFO\\s+server\\b', '^INFO\\b'],
+        acceptedPatterns: ['^INFO\\s+stats\\b', '^INFO\\s+all\\b', '^INFO\\b'],
         sampleAnswer: 'INFO stats',
         hint:
           '`INFO [section]` returns counters. `INFO stats` includes `keyspace_hits` and `keyspace_misses` — your hit ratio.',
@@ -391,7 +391,7 @@ export const PHASE_4_QUESTS: Quest[] = [
           label: 'Disable caching so all reads go direct to the DB',
           isCorrect: false,
           feedback:
-            'Wrong — removing the cache would make the stampade permanent. The fix is to make the cache refill safely, not to delete it.',
+            'Wrong — removing the cache would make the stampede permanent. The fix is to make the cache refill safely, not to delete it.',
         },
       ],
     ],

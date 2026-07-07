@@ -288,7 +288,7 @@ export const PHASE_7_QUESTS: Quest[] = [
           'It improves runtime performance of the container',
         ],
         correctIndex: 1,
-        explanation: 'Layers above a changed line are rebuilt; layers below are reused. Putting rarely-changing steps (like `npm ci`) first means code edits rebuild only cheap layers.',
+        explanation: 'Layers above a changed line are reused (cached); the changed line and everything below it are rebuilt. Putting rarely-changing steps (like `npm ci`) first means code edits rebuild only the cheap layers below.',
       },
       {
         id: 'q3',

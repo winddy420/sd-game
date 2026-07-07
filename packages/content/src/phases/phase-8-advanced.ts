@@ -432,7 +432,7 @@ export const PHASE_8_QUESTS: Quest[] = [
           'Verify Route 53 now reports ap-southeast-1 as the healthy endpoint for the health check with id `abc123de-failover`.',
         acceptedPatterns: [
           'aws\\s+route53\\s+get-health-check-status\\s+--health-check-id\\s+abc123de-failover',
-          'aws\\s+route53\\s+get-health-check\\s+--id\\s+abc123de-failover',
+          'aws\\s+route53\\s+get-health-check\\s+--health-check-id\\s+abc123de-failover',
         ],
         sampleAnswer:
           'aws route53 get-health-check-status --health-check-id abc123de-failover',
@@ -480,12 +480,12 @@ export const PHASE_8_QUESTS: Quest[] = [
     order: 5,
     xpReward: 250,
     failureDescription:
-      'At 09:17 a network partition isolates two of your five Cassandra nodes from the other three. Dashboards show conflicting writes and divergent read results across the two groups.',
+      'At 09:17 a network partition isolates two of your five etcd nodes (a Raft consensus cluster storing service config) from the other three. The 2-node minority has lost contact with the leader and cannot reach quorum; clients routed to it are timing out.',
     symptoms: [
-      'Two subgroups of nodes report different "last write" values for the same row',
-      'Clients contacting group A see one balance; clients contacting group B see another',
+      'The 3-node majority elected a stable leader and keeps serving reads/writes',
+      'The 2-node minority stalls — its writes time out because it cannot get a Raft majority (3 of 5)',
       'No node has crashed — all five are up, just partitioned',
-      'Write latency on the 2-node group has spiked to multi-second timeouts',
+      'On-call is tempted to "fix" the minority so it stops timing out',
     ],
     prerequisites: ['q-8-arch-multiregion'],
     steps: [
@@ -493,34 +493,34 @@ export const PHASE_8_QUESTS: Quest[] = [
         {
           id: 'a',
           label:
-            'Force both groups to keep accepting writes — availability first; reconcile later',
+            'Force the minority to accept writes on its own so clients stop timing out',
           isCorrect: false,
           feedback:
-            'Wrong — this is precisely the split-brain behavior that corrupts data. Two groups accepting conflicting writes makes recovery a manual, lossy mess. Quorum exists to prevent exactly this.',
+            'Wrong — a Raft minority accepting commits without quorum is exactly split-brain. You would create a divergent log that must be manually, lossily reconciled. Quorum exists to prevent this.',
         },
         {
           id: 'b',
           label:
-            'Shut down the 2-node minority so only the 3-node majority can serve traffic; reads/writes go through the quorum side',
+            'Route all clients to the 3-node majority (which has quorum) and leave the minority stalled until the partition heals',
           isCorrect: true,
           feedback:
-            'Correct. The minority cannot reach quorum (3 of 5), so it must refuse writes. Routing all traffic to the 3-node majority preserves a single source of truth; the minority rejoins and catches up after the partition heals.',
+            'Correct. Only the 3-node majority can reach quorum (3 of 5), so it is the single source of truth. The minority refuses commits, then rejoins and catches up via Raft log replication once the partition heals — no divergence, no data loss.',
         },
         {
           id: 'c',
           label:
-            'Promote one of the partitioned nodes to a new leader so both groups have a leader',
+            'Force a leader election in the 2-node minority so both groups have their own leader',
           isCorrect: false,
           feedback:
-            'Wrong — two concurrent leaders across a partition is the definition of split-brain. It multiplies the divergence instead of containing it.',
+            'Wrong — two concurrent leaders across a partition is the definition of split-brain. A 2-node group cannot win a Raft election (needs 3 votes), and forcing one anyway multiplies the divergence instead of containing it.',
         },
         {
           id: 'd',
           label:
-            'Lower the consistency level to ONE on every query so writes stop timing out',
+            'Shrink the cluster to 2 nodes so the minority suddenly has quorum',
           isCorrect: false,
           feedback:
-            'Wrong — relaxing to ONE trades consistency for availability and will let the two groups accept conflicting writes. You are choosing split-brain over a brief stall; not acceptable for financial/balance data.',
+            'Wrong — you would be discarding the 3-node majority (and its newer committed entries), effectively choosing the losing side. Quorum is about which side CAN commit safely, not about redefining the cluster to fit the smaller side.',
         },
       ],
     ],

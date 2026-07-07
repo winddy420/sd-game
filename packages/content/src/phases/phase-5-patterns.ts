@@ -357,8 +357,9 @@ export const PHASE_5_QUESTS: Quest[] = [
         prompt:
           'Create a Kafka topic named `orders` with 3 partitions and replication factor 1.',
         acceptedPatterns: [
-          'kafka-topics.*--bootstrap-server.*--create.*--topic\\s+orders',
-          'kafka-topics.*--create.*--topic\\s+orders.*--partitions\\s+3',
+          'kafka-topics.*--bootstrap-server.*--create.*--topic\\s+orders.*--partitions\\s+3.*--replication-factor\\s+1',
+          'kafka-topics.*--create.*--topic\\s+orders.*--partitions\\s+3.*--replication-factor\\s+1',
+          'kafka-topics.*--create.*--topic\\s+orders.*--replication-factor\\s+1.*--partitions\\s+3',
         ],
         sampleAnswer:
           'kafka-topics --bootstrap-server localhost:9092 --create --topic orders --partitions 3 --replication-factor 1',

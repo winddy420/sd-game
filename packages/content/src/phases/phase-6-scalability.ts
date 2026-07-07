@@ -403,7 +403,7 @@ export const PHASE_6_QUESTS: Quest[] = [
     order: 5,
     xpReward: 200,
     failureDescription:
-      'At 03:11, on-call gets paged: the API error rate has climbed from 0.1% to 38% in six minutes. Latency is climbing. Users are seeing 504s. The dashboard shows DB query time tripled, then app server memory spiked, then health checks started failing.',
+      'At 03:11, on-call gets paged: the API error rate has climbed from 0.1% to 38% in six minutes. Latency is climbing. Users are seeing 504s. The dashboard shows DB query time jumped ~9× (10ms → 90ms), then app server memory spiked, then health checks started failing.',
     symptoms: [
       'DB primary query latency jumped from 10ms to 90ms (still "up", just slow)',
       'App server memory is at 95% and rising; pods are being OOM-killed',

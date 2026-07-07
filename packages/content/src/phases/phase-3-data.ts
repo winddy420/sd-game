@@ -441,7 +441,7 @@ export const PHASE_3_QUESTS: Quest[] = [
         acceptedPatterns: [
           '^\\s*\\\\c\\s+orders\\s*$',
           '^\\s*\\\\connect\\s+orders\\s*$',
-          '^\\s*psql\\s+(-d\\s+orders|--dbname\\s+orders|-d\\s+orders)\\b.*orders',
+          '^\\s*psql\\s+(-d\\s+orders|--dbname\\s+orders)(\\s|$).*',
         ],
         sampleAnswer: '\\c orders',
         hint: 'Inside psql, switch databases with `\\c <dbname>` (backslash-c).',
@@ -530,10 +530,10 @@ export const PHASE_3_QUESTS: Quest[] = [
         {
           id: 'b',
           label:
-            'Replica #2 is a hot partition — most read traffic is routed to it because of a sticky/skewed shard key. Rebalance the partition key or shard by a compound key, and drain traffic off replica #2.',
+            'The read router/load-balancer is sending most read traffic to replica #2 (skewed distribution), pinning it. Fix the router to spread reads evenly (round-robin / least-connections) and drain traffic off replica #2.',
           isCorrect: true,
           feedback:
-            'Correct! One replica absorbing ~90% of reads is a classic hot partition: CPU pinned, replication lag climbing, other replicas idle. Rebalancing the key (or using consistent hashing / a compound key) spreads load. Replica lag is a symptom, not the root cause.',
+            'Correct! Replicas hold identical data, so one pinned at 100% while its siblings idle is a read-routing skew, not a data-distribution problem. Fixing the router to distribute reads (round-robin or least-connections) removes the hot spot. The growing replication lag is a symptom of the overload, not the root cause.',
         },
         {
           id: 'c',
