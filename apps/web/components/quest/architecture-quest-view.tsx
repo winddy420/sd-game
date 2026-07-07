@@ -73,7 +73,7 @@ export function ArchitectureQuestView({
         <p className="text-sm text-gray-200">{quest.brief}</p>
         {quest.requiredComponentTypes && quest.requiredComponentTypes.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-gray-500">Required:</span>
+            <span className="text-gray-400">Required:</span>
             {quest.requiredComponentTypes.map((t) => (
               <span key={t} className="rounded-full bg-white/5 px-2 py-0.5 text-gray-300">
                 {t}
@@ -94,7 +94,7 @@ export function ArchitectureQuestView({
 
       {/* Actions */}
       <div className="flex items-center justify-between gap-3">
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-gray-400">
           {topology.nodes.length} components · {topology.edges.length} connections
         </div>
         <Button size="lg" onClick={runSimulation} disabled={busy || topology.nodes.length === 0}>
@@ -108,7 +108,7 @@ export function ArchitectureQuestView({
 
       {/* Live preview hint while building */}
       {!result && preview && (
-        <p className="text-center text-xs text-gray-500">
+        <p className="text-center text-xs text-gray-400">
           Live preview: {preview.connected ? 'path connected' : '⚠ not connected yet'} · ~
           {preview.latencyP95}ms · {preview.costPerMonth}/mo
         </p>

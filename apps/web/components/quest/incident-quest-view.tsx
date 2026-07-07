@@ -89,7 +89,7 @@ export function IncidentQuestView({
                   showResult && (choice.isCorrect ? 'border-emerald-500/50' : 'border-red-500/50'),
                 )}
               >
-                <span className="mt-0.5 text-gray-500">○</span>
+                <span className="mt-0.5 text-gray-400">○</span>
                 <div>
                   <div className="font-medium">{choice.label}</div>
                   {showResult && (

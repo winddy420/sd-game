@@ -341,13 +341,150 @@ export const PHASE_5_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: Microservices vs monolith ---- */
+  {
+    id: 'q-5-lesson-microservices',
+    type: 'lesson',
+    title: 'Microservices vs Monolith',
+    phaseId: 'phase-5',
+    order: 3,
+    xpReward: 100,
+    conceptId: 'c-5-microservices',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'A small team is building an MVP and the product boundaries are still unclear. Should they adopt microservices?',
+        options: [
+          'Yes — split into microservices immediately to future-proof the architecture',
+          'No — stay monolith; microservice overhead (network calls, ops, distributed transactions) is not worth it yet',
+          'Yes — split strictly along technical layers (frontend, backend, database)',
+          'Yes — but only if they adopt a service mesh first',
+        ],
+        correctIndex: 1,
+        explanation:
+          'For a small team with an unclear product boundary, the operational overhead of microservices outweighs the benefit. The concept table maps this signal directly to "stay monolith" — split once team boundaries and scale pressure make it necessary.',
+      },
+      {
+        id: 'q2',
+        prompt:
+          'A team split a monolith into 8 services, but they all read/write one shared Postgres schema and must be deployed together. What is this?',
+        options: [
+          'A well-formed microservices architecture',
+          'A distributed monolith — paying both costs and getting neither benefit',
+          'An event-driven architecture',
+          'A serverless architecture',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Shared data and coupled deploys are the hallmarks of a distributed monolith. If every service depends on the same schema, a schema change can break them all, and independent deployability — the main payoff of microservices — is lost.',
+      },
+      {
+        id: 'q3',
+        prompt: 'Which statement best reflects Conway\'s Law as it applies to architecture?',
+        options: [
+          'Your architecture tends to mirror your organization\'s communication structure (team boundaries)',
+          'The fastest service always wins in production',
+          'Every service must be written in the same language',
+          'All services should share a single database for consistency',
+        ],
+        correctIndex: 0,
+        explanation:
+          'Conway\'s Law says systems mirror the org chart that builds them. The practical takeaway: split services where teams split, not where the code merely "feels" separable.',
+      },
+      {
+        id: 'q4',
+        prompt:
+          'Between checkout and inventory, why might you choose async (queue/events) over a synchronous REST call?',
+        options: [
+          'Async calls are always lower-latency than sync calls',
+          'It decouples them — if inventory is briefly down, checkout can still publish and proceed',
+          'Async communication guarantees strict, real-time consistency',
+          'Async removes the need for either service to have a database',
+        ],
+        correctIndex: 1,
+        explanation:
+          'A synchronous call couples the caller\'s latency and availability to the callee — if inventory is down, checkout fails. Async messaging lets checkout publish an event and move on; inventory reacts when it can, at the cost of eventual consistency.',
+      },
+    ],
+  },
+
+  /* ---- Lesson: Event-driven architecture ---- */
+  {
+    id: 'q-5-lesson-event-driven',
+    type: 'lesson',
+    title: 'Event-Driven Architecture',
+    phaseId: 'phase-5',
+    order: 4,
+    xpReward: 100,
+    conceptId: 'c-5-event-driven',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'Which pairing correctly distinguishes an event from a command?',
+        options: [
+          '"OrderPlaced" is an event (a fact that happened); "SendInvoice" is a command (an imperative to do something)',
+          '"SendInvoice" is an event; "OrderPlaced" is a command',
+          'Both are events — there is no difference',
+          'Both are commands — there is no difference',
+        ],
+        correctIndex: 0,
+        explanation:
+          'Events are past-tense facts ("this happened") that anyone may subscribe to. Commands are imperatives ("please do this") usually aimed at one target. Mixing them up creates tight coupling; default to events.',
+      },
+      {
+        id: 'q2',
+        prompt: 'Your broker guarantees at-least-once delivery. Why must every consumer be idempotent?',
+        options: [
+          'To make the consumer run faster',
+          'Because the same event will be delivered more than once, and processing a duplicate must produce no extra side effect',
+          'So the broker can be removed entirely',
+          'To guarantee exactly-once delivery across all systems',
+        ],
+        correctIndex: 1,
+        explanation:
+          'At-least-once means duplicates are inevitable (redelivery after a crash, network retry, or rebalance). An idempotent consumer — deduping on the event id or a natural key — safely processes duplicates with no additional side effect.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'An "OrderPlaced" event already triggers EmailService, InventoryService, and AnalyticsService. You want to add a LoyaltyService reaction. What must change in the producer (OrderService)?',
+        options: [
+          'Rewrite OrderService to call LoyaltyService synchronously on every order',
+          'Nothing in OrderService — just subscribe LoyaltyService to the existing event',
+          'Add a new mandatory field to every event and redeploy OrderService',
+          'Replace the broker with direct database calls to LoyaltyService',
+        ],
+        correctIndex: 1,
+        explanation:
+          'This is event-driven architecture\'s superpower: adding a new reaction means subscribing a new consumer. The producer is unaware of subscribers and requires zero changes.',
+      },
+      {
+        id: 'q4',
+        prompt:
+          'You need to know whether a payment is approved right now before letting the user proceed. What is the right approach?',
+        options: [
+          'Publish a payment event and hope it settles within a few seconds',
+          'Make a synchronous call for an immediate answer; use events only for downstream reactions',
+          'Poll the payment database every few seconds until it updates',
+          'Skip the payment check and reconcile later',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Eventual consistency is fine for fan-out reactions, but not when you need a decision to proceed. Use a synchronous call to get the authorization answer, then emit an event so downstream services (receipts, analytics, inventory) can react.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: Kafka CLI ---- */
   {
     id: 'q-5-command-kafka',
     type: 'command',
     title: 'Kafka CLI Lab',
     phaseId: 'phase-5',
-    order: 3,
+    order: 5,
     xpReward: 150,
     intro:
       'You are wiring up an event-driven orders pipeline. Use the Kafka CLI tools to create a topic, publish an event, and read it back from the broker at localhost:9092.',
@@ -398,7 +535,7 @@ export const PHASE_5_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Decouple a Write-Heavy Flow',
     phaseId: 'phase-5',
-    order: 4,
+    order: 6,
     xpReward: 250,
     brief:
       "ScaleUp's order-placement API is buckling under flash-sale traffic. Writes (placing orders) are slow, and the user waits for them to complete. Decouple the write path: the app accepts the request, publishes an event to Kafka, and returns immediately (202 Accepted) — a worker drains the queue and persists orders to Postgres. Put Redis in front of the DB to cache the read-heavy lookups. Hit p95 ≤ 100 ms, ≥ 6,000 rps, ≥ 99.9% availability, ≤ $3,500/month.",
@@ -420,7 +557,7 @@ export const PHASE_5_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Order Confirmations Delayed 10+ Minutes',
     phaseId: 'phase-5',
-    order: 5,
+    order: 7,
     xpReward: 250,
     failureDescription:
       "At 09:14 (flash-sale launch), order placement still works — API p95 latency is a healthy 60 ms — but customers report order-confirmation emails arriving 10–15 minutes late. The email service itself is up and responds in 30 ms when called directly.",
@@ -471,7 +608,7 @@ export const PHASE_5_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: E-commerce Checkout',
     phaseId: 'phase-5',
-    order: 6,
+    order: 8,
     xpReward: 500,
     brief:
       "You are now the lead architect. Design ScaleUp's checkout system for a flash-sale launch: 8,000 rps with 70% reads (cart/price/product lookups), p95 ≤ 120 ms, ≥ 99.95% availability, ≤ $4,500/month. The checkout flow must (1) place orders as writes without losing them if a downstream is slow — decouple writes with a queue, (2) serve cart & product reads from a cache, and (3) persist the source of truth in Postgres. Use a CDN at the edge and a load balancer in front of the app tier for availability. Plan for redundancy — 99.95% means no single point of failure.",

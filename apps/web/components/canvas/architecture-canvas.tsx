@@ -195,7 +195,7 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
               <span className="text-lg">{def.icon}</span>
               <div className="min-w-0">
                 <div className="truncate text-xs font-medium">{def.name}</div>
-                <div className="text-[10px] text-gray-500">${def.costPerMonth}/mo</div>
+                <div className="text-[10px] text-gray-400">${def.costPerMonth}/mo</div>
               </div>
             </button>
           ))}
@@ -307,7 +307,7 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
 
           {nodes.length === 0 && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2 text-gray-500">
+              <div className="flex flex-col items-center gap-2 text-gray-400">
                 <Zap className="h-6 w-6" />
                 <span className="text-sm">Tap a component to add it. Connect with drag, or tap a node → Connect → tap target.</span>
               </div>

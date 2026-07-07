@@ -81,7 +81,7 @@ export default function MapPage() {
                         {phase.act} · {phase.scale}
                       </Badge>
                       {!unlocked && (
-                        <Badge className="bg-white/5 text-gray-500">
+                        <Badge className="bg-white/5 text-gray-400">
                           <Lock className="h-3 w-3" /> Locked
                         </Badge>
                       )}
@@ -89,7 +89,7 @@ export default function MapPage() {
                     </div>
                     <h2 className="mt-2 text-lg font-bold">{phase.title}</h2>
                     <p className="text-sm text-gray-400">{phase.tagline}</p>
-                    <div className="mt-1.5 text-xs text-gray-500">
+                    <div className="mt-1.5 text-xs text-gray-400">
                       {doneCount}/{phase.questIds.length} quests done
                     </div>
                   </div>
@@ -131,7 +131,7 @@ export default function MapPage() {
                                 <Badge className="bg-accent/15 text-accent-soft">Capstone</Badge>
                               )}
                             </div>
-                            <div className="text-xs text-gray-500">+{q.xpReward} XP</div>
+                            <div className="text-xs text-gray-400">+{q.xpReward} XP</div>
                           </div>
                           {qDone ? (
                             <Check className="h-4 w-4 text-emerald-400" />

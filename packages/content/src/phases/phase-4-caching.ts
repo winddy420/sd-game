@@ -284,13 +284,142 @@ export const PHASE_4_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: distributed caching ---- */
+  {
+    id: 'q-4-lesson-distributed',
+    type: 'lesson',
+    title: 'Distributed Caching',
+    phaseId: 'phase-4',
+    order: 3,
+    xpReward: 100,
+    conceptId: 'c-4-distributed',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'How does Redis Cluster distribute keys across its shards?',
+        options: [
+          'A central coordinator routes every key at runtime',
+          'Each key maps to one of 16,384 hash slots, and each shard owns a slot range',
+          'All shards hold all keys (full replication)',
+          'Keys are manually pinned to a shard by the application',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Redis Cluster uses 16,384 hash slots. A CRC16 of the key maps it to a slot, and each shard owns a contiguous range of slots; you add capacity by resharding.',
+      },
+      {
+        id: 'q2',
+        prompt:
+          'A popular key expires and 200 requests arrive in the same millisecond, all missing the cache and hammering the DB with the same query. What is this called?',
+        options: [
+          'Cache penetration',
+          'Cache stampede (thundering herd)',
+          'Cold start',
+          'Replica lag',
+        ],
+        correctIndex: 1,
+        explanation:
+          'When a hot key expires or is evicted and many concurrent requests miss on it at once, they pile onto the origin together — a cache stampede (a.k.a. thundering herd).',
+      },
+      {
+        id: 'q3',
+        prompt: 'Which pattern best stops a stampede when a hot key expires?',
+        options: [
+          'Increase the database connection pool',
+          'Add more Redis replicas',
+          'Single-flight/mutex: only one request refills the key while others wait or fall back to stale-while-revalidate',
+          'Disable the TTL on hot keys so they never expire',
+        ],
+        correctIndex: 2,
+        explanation:
+          'A mutex (single-flight) lets only one request do the refill while the rest block or serve a stale value, so the origin takes one query instead of 200.',
+      },
+      {
+        id: 'q4',
+        prompt: 'Why is reading from a Redis replica right after a write risky?',
+        options: [
+          'Replicas do not serve reads at all',
+          'Replication is asynchronous, so a replica can briefly lag behind and return stale data',
+          'Replicas hold a different key schema than the primary',
+          'Reading from a replica requires a separate password',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Redis replication is asynchronous — a replica may not yet have applied your write, so read-your-writes from a replica can return the old value. Read from the primary when freshness matters.',
+      },
+    ],
+  },
+
+  /* ---- Lesson: CDN caching & hit-ratio economics ---- */
+  {
+    id: 'q-4-lesson-cdn',
+    type: 'lesson',
+    title: 'CDN Caching & Hit-Ratio Economics',
+    phaseId: 'phase-4',
+    order: 4,
+    xpReward: 100,
+    conceptId: 'c-4-cdn',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'A CDN has a 90% cache hit ratio. What fraction of requests reaches your origin?',
+        options: ['0% (all served from the edge)', '10%', '50%', '90%'],
+        correctIndex: 1,
+        explanation:
+          'Miss ratio = 1 − hit ratio = 1 − 0.90 = 0.10. Ten percent of requests fall through to the origin; the other 90% are served from the edge.',
+      },
+      {
+        id: 'q2',
+        prompt: 'Raising the CDN hit ratio improves which three things at once?',
+        options: [
+          'Edge latency, origin load, egress cost',
+          'Cache size, response size, TTL',
+          'Bandwidth, RAM, CPU',
+          'Storage cost, build time, deploy time',
+        ],
+        correctIndex: 0,
+        explanation:
+          'Higher hit ratio means edge responses (low latency), fewer origin requests (lower load), and fewer bytes traversing your origin link (lower egress) — all three improve together.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'Which Cache-Control header is appropriate for a content-hashed static asset (e.g. app.ab3f9c.js)?',
+        options: [
+          'private, max-age=0',
+          'no-store',
+          'public, max-age=31536000, immutable',
+          'Vary: *',
+        ],
+        correctIndex: 2,
+        explanation:
+          'Hashed assets are immutable — the hash changes when the file changes. `max-age=31536000` (one year) plus `immutable` lets the browser and CDN cache them effectively forever.',
+      },
+      {
+        id: 'q4',
+        prompt: 'Why can `Vary: Cookie` (with a per-user session cookie) crater a CDN hit ratio?',
+        options: [
+          'It disables HTTP/2 on the edge',
+          'Each unique cookie value fragments the cache key, so most requests miss',
+          'It forces HTTPS for every request',
+          'It strips the Cache-Control header from responses',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Vary makes the cache key include the listed headers. A per-user session cookie means nearly every request is a unique key, fragmenting the cache and cratering the hit ratio. Strip session cookies on cacheable public responses.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: redis-cli basics ---- */
   {
     id: 'q-4-command-redis',
     type: 'command',
     title: 'Redis CLI Lab',
     phaseId: 'phase-4',
-    order: 3,
+    order: 5,
     xpReward: 150,
     intro:
       'You have a fresh Redis. Cache a hot user profile with a TTL, read it back, and inspect hit-rate stats.',
@@ -329,7 +458,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Add Cache to a Slow Read Path',
     phaseId: 'phase-4',
-    order: 4,
+    order: 6,
     xpReward: 250,
     brief:
       'ScaleUp\'s product-detail page is served straight from Postgres and p95 is over 200 ms. Reads dominate the traffic (95% reads), so the cheapest, fastest fix is to put a cache in front of the DB. Add Redis to the path so hot reads stay under 60 ms p95 at 5,000 rps, 99.9% availability, under $2,500/month.',
@@ -351,7 +480,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Cache Stampede',
     phaseId: 'phase-4',
-    order: 5,
+    order: 7,
     xpReward: 250,
     failureDescription:
       'At 09:00, right after the homepage banner swapped, the homepage\'s "featured product" cache key expired. Database CPU jumped to 100% and p95 latency went from 40 ms to 1,800 ms. The app is up, the cache is up, the DB is up — but it is drowning.',
@@ -403,7 +532,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Optimize a Slow API',
     phaseId: 'phase-4',
-    order: 6,
+    order: 8,
     xpReward: 500,
     brief:
       'You are now the lead. The product API runs at p95 = 800 ms because every read hits the database and assets are served from the origin. Reads are 97% of traffic. Drive p95 under 80 ms at 10,000 rps, 99.95% availability, under $3,000/month. You must use an app server, a SQL database, a cache, and a CDN. Hint: serve static/cacheable responses from the CDN edge, cache hot dynamic reads in Redis, and keep the DB for writes and cold misses.',

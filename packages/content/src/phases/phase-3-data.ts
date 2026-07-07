@@ -353,13 +353,83 @@ export const PHASE_3_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 2. Lesson: CAP & replication ---- */
+  /* ---- 2. Lesson: NoSQL families ---- */
+  {
+    id: 'q-3-lesson-nosql',
+    type: 'lesson',
+    title: 'NoSQL Trade-offs',
+    phaseId: 'phase-3',
+    order: 2,
+    xpReward: 100,
+    conceptId: 'c-3-nosql',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'Your app mostly reads whole user profiles (name, email, addresses, preferences) as a single object, and the schema evolves rapidly with new fields every sprint. Which store is the most natural fit?',
+        options: [
+          'Wide-column (Cassandra) — best for ad-hoc JOINs across partitions',
+          'Document (MongoDB) — self-contained JSON docs hold nested data, no JOIN needed for the profile, schema can evolve freely',
+          'Key-value (Redis) — supports a rich nested query language',
+          'Graph (Neo4j) — optimized for reading flat user records',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Document stores keep related data together in one JSON-like document. A profile with nested addresses is a single disk seek, the schema can grow anytime, and there are no JOINs to reassemble the object. SQL would split the profile across many tables; wide-column and key-value stores don\'t model nested objects this naturally.',
+      },
+      {
+        id: 'q2',
+        prompt:
+          'You are evaluating Cassandra (wide-column) for a sensor-events workload. Which statement is accurate?',
+        options: [
+          'Cassandra supports multi-row ACID transactions across partitions just like Postgres',
+          'Cassandra is optimized for ad-hoc JOINs and GROUP BY queries on arbitrary columns',
+          'Cassandra targets massive write throughput and multi-datacenter replication, but queries must be designed around the partition key — no ad-hoc JOINs',
+          'Cassandra requires a single primary node that accepts all writes',
+        ],
+        correctIndex: 2,
+        explanation:
+          'Wide-column stores trade relational flexibility for scale: peer-to-peer (no single primary), tens of thousands of writes/sec per node, and multi-region replication. The cost is that queries must follow the partition key — there are no ad-hoc JOINs or GROUP BY, and conflict resolution is last-write-wins.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'Which NoSQL family is the natural fit for a session store / leaderboard that needs sub-millisecond reads and can tolerate a few seconds of staleness?',
+        options: [
+          'Document store (MongoDB)',
+          'Wide-column store (Cassandra)',
+          'Key-value store (Redis)',
+          'Graph store (Neo4j)',
+        ],
+        correctIndex: 2,
+        explanation:
+          'Key-value stores (Redis) offer microsecond reads and are purpose-built for caching, sessions, counters, and leaderboards. The trade-off is a minimal data model (just a key pointing at a value) and a working set that should fit in memory — Redis typically sits alongside a durable SQL/NoSQL store, not as the source of truth.',
+      },
+      {
+        id: 'q4',
+        prompt:
+          'You are starting a new product with uncertain access patterns. Which is the soundest default?',
+        options: [
+          'Start with Cassandra to be safe — you can always scale down later',
+          'Always start with a NoSQL store for maximum horizontal scalability',
+          'Start with Postgres (SQL); only move to NoSQL when you can articulate a specific problem SQL cannot solve',
+          'Start with a graph database for maximum flexibility',
+        ],
+        correctIndex: 2,
+        explanation:
+          'The heuristic from the lesson: start with Postgres. SQL gives you ACID, JOINs, and a flexible query model that absorbs changing requirements. NoSQL solves specific problems (write scale, nested data, microsecond reads) at the cost of those guarantees — reach for it only when you can name the problem.',
+      },
+    ],
+  },
+
+  /* ---- 3. Lesson: CAP & replication ---- */
   {
     id: 'q-3-lesson-cap',
     type: 'lesson',
     title: 'CAP & Replication Trade-offs',
     phaseId: 'phase-3',
-    order: 2,
+    order: 3,
     xpReward: 100,
     conceptId: 'c-3-replication-cap',
     prerequisites: ['q-3-lesson-sql'],
@@ -423,13 +493,83 @@ export const PHASE_3_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 3. Command Lab: SQL CLI ---- */
+  /* ---- 4. Lesson: Sharding & partitioning ---- */
+  {
+    id: 'q-3-lesson-sharding',
+    type: 'lesson',
+    title: 'Sharding & Hot Partitions',
+    phaseId: 'phase-3',
+    order: 4,
+    xpReward: 100,
+    conceptId: 'c-3-sharding',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'Which statement correctly distinguishes replication from sharding?',
+        options: [
+          'They are different words for the same thing',
+          'Replication keeps copies of the SAME data on multiple nodes; sharding splits DIFFERENT data across nodes (each node owns a subset)',
+          'Replication splits data across nodes; sharding copies the same data to every node',
+          'Replication improves write throughput; sharding improves only availability',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Replication = same data, multiple nodes (durability + read scale). Sharding = different data on different nodes (write scale + dataset size). Production systems often combine them: each shard is itself replicated for durability.',
+      },
+      {
+        id: 'q2',
+        prompt:
+          'You partition with `shard = hash(key) mod N`. What happens when you add an (N+1)th node?',
+        options: [
+          'Nothing — hash mod N is stable when N changes',
+          'Only a few keys move, because only one slot in the ring changes',
+          'Nearly every key remaps to a different node (`hash(key) mod (N+1)` differs from `hash(key) mod N`), so almost all data must be relocated',
+          'The hash function breaks and reads start failing until you rebuild the index',
+        ],
+        correctIndex: 2,
+        explanation:
+          '`hash(key) mod N` redistributes almost every key when N changes, because every key\'s slot is recomputed. This rigidity is why consistent hashing exists: hash both keys and nodes onto a ring, so adding or removing a node moves only the keys in the affected segment.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'A celebrity posts on your social network. p95 latency jumps, and you find ONE database shard pinned at 100% CPU while the others sit idle. What is the most likely cause and best fix?',
+        options: [
+          'Cause: too few shards. Fix: blindly add 10 more uniform shards',
+          'Cause: a hot partition — the celebrity\'s key funnels all writes to one shard. Fix: use a compound key (e.g. `(celebrityId, postId)`) or pre-split / salt the hot key so its traffic spreads across shards',
+          'Cause: replica lag. Fix: switch to synchronous replication',
+          'Cause: too many indexes on the cold shards. Fix: drop their indexes',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Classic hot partition: skewed key choice routes disproportionate traffic to one shard. Adding shards uniformly won\'t help if the celebrity\'s key still hashes to a single shard. Compound keys, salting (random suffix), time-bucketing, or counter-sharding spread the hot key\'s load across the cluster.',
+      },
+      {
+        id: 'q4',
+        prompt:
+          'Your single Postgres primary is feeling write pressure. What should you try BEFORE sharding?',
+        options: [
+          'Shard immediately — it\'s the only way to scale writes',
+          'Drop ACID guarantees so writes are faster',
+          'Add a Redis cache for hot reads, add read replicas, optimize queries and indexes, and archive cold data; shard only when all of these are exhausted',
+          'Migrate to NoSQL to avoid the problem entirely',
+        ],
+        correctIndex: 2,
+        explanation:
+          'Sharding is expensive: cross-shard queries, distributed transactions, and rebalancing pain. The textbook sequence is cache → read replicas → query/index tuning → archiving. Only when a single primary genuinely cannot keep up with WRITES should you shard.',
+      },
+    ],
+  },
+
+  /* ---- 5. Command Lab: SQL CLI ---- */
   {
     id: 'q-3-command-sql',
     type: 'command',
     title: 'SQL Terminal Lab',
     phaseId: 'phase-3',
-    order: 3,
+    order: 5,
     xpReward: 150,
     intro:
       'You are debugging a slow orders service. Diagnose the query with the psql terminal.',
@@ -471,13 +611,13 @@ export const PHASE_3_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 4. Architecture: read-heavy service ---- */
+  /* ---- 6. Architecture: read-heavy service ---- */
   {
     id: 'q-3-arch-sharding',
     type: 'architecture',
     title: 'Design a Read-Heavy Service',
     phaseId: 'phase-3',
-    order: 4,
+    order: 6,
     xpReward: 250,
     brief:
       'ScaleUp\'s analytics dashboard is read-heavy: 90% reads at 3,000 rps. The team already runs Postgres as the source of truth. Build a path that absorbs read load without overloading the primary — add a read replica and a Redis cache in front. Stay under $3,000/month, p95 latency ≤ 120 ms, 99.9% availability. Hint: route writes to the primary, reads to the replica, and hot reads to the cache.',
@@ -499,13 +639,13 @@ export const PHASE_3_QUESTS: Quest[] = [
     prerequisites: ['q-3-command-sql'],
   },
 
-  /* ---- 5. Incident: hot partition / replica lag ---- */
+  /* ---- 7. Incident: hot partition / replica lag ---- */
   {
     id: 'q-3-incident-hotpartition',
     type: 'incident',
     title: 'Incident: Feed Latency Spike',
     phaseId: 'phase-3',
-    order: 5,
+    order: 7,
     xpReward: 200,
     failureDescription:
       'At 09:17, p95 latency on the social feed jumps from 40 ms to 2,400 ms. Users complain that the feed is "stuck on yesterday\'s posts". One database replica is pinned at 100% CPU; the other two replicas are nearly idle. The primary is healthy.',
@@ -555,13 +695,13 @@ export const PHASE_3_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 6. Capstone: Social Feed ---- */
+  /* ---- 8. Capstone: Social Feed ---- */
   {
     id: 'q-3-capstone',
     type: 'architecture',
     title: 'Capstone: Design a Social Feed',
     phaseId: 'phase-3',
-    order: 6,
+    order: 8,
     xpReward: 500,
     brief:
       'You are the tech lead for "Chirp", a Twitter-like social network. Design the data layer for the home timeline. Workload: 8,000 rps, 95% reads (people scroll feeds, rarely post). p95 latency must stay under 100 ms — feeds must feel instant — with 99.9% availability and under $4,000/month.\n\nConstraints & hints:\n- Posts are append-only; timelines are read constantly. Cache aggressively.\n- A single SQL primary will not survive the read load — pre-compute timelines or use a document store for the feed.\n- Celebrities break naive fan-out: their posts hit millions of feeds. Consider a hybrid (fan-out-on-write for normal users, fan-out-on-read for celebrities).\n- Required: at least one app server, one cache, and one NoSQL store.',

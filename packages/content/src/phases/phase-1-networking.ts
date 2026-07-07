@@ -243,13 +243,184 @@ export const PHASE_1_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: TCP vs UDP ---- */
+  {
+    id: 'q-1-lesson-tcp',
+    type: 'lesson',
+    title: 'TCP vs UDP',
+    phaseId: 'phase-1',
+    order: 3,
+    xpReward: 100,
+    conceptId: 'c-tcp-udp',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'What is the TCP three-way handshake?',
+        options: [
+          'GET → 200 OK → close',
+          'SYN → SYN-ACK → ACK',
+          'PING → PONG → DATA',
+          'CONNECT → ACCEPT → READ',
+        ],
+        correctIndex: 1,
+        explanation: 'TCP establishes a connection with SYN → SYN-ACK → ACK before sending data (one round trip).',
+      },
+      {
+        id: 'q2',
+        prompt: 'Which workload is the best fit for UDP?',
+        options: [
+          'A bank transfer',
+          'A file download',
+          'A live video call',
+          'A database transaction',
+        ],
+        correctIndex: 2,
+        explanation: 'Live voice/video prioritizes lowest latency over guaranteed delivery — UDP. Late packets are dropped, not re-sent.',
+      },
+      {
+        id: 'q3',
+        prompt: 'What does TCP guarantee that UDP does not?',
+        options: [
+          'Lower latency',
+          'Reliable, ordered delivery',
+          'Smaller packet size',
+          'Connectionless transport',
+        ],
+        correctIndex: 1,
+        explanation: 'TCP guarantees every byte arrives, in order, with retransmission. UDP is best-effort, unordered.',
+      },
+      {
+        id: 'q4',
+        prompt: 'Why is DNS traditionally sent over UDP?',
+        options: [
+          'DNS needs guaranteed delivery',
+          'Queries are small and latency matters more than perfect delivery',
+          'DNS servers cannot speak TCP',
+          'UDP supports larger payloads than TCP',
+        ],
+        correctIndex: 1,
+        explanation: 'DNS queries/replies are tiny; UDP avoids the handshake, keeping resolution fast. Retries are cheap.',
+      },
+    ],
+  },
+
+  /* ---- Lesson: CDN & Latency ---- */
+  {
+    id: 'q-1-lesson-cdn',
+    type: 'lesson',
+    title: 'CDN & Latency',
+    phaseId: 'phase-1',
+    order: 4,
+    xpReward: 100,
+    conceptId: 'c-cdn',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'What is the main benefit of putting static assets behind a CDN?',
+        options: [
+          'It encrypts traffic',
+          'Lower latency for users everywhere + less load on your origin',
+          'It replaces your database',
+          'It makes assets smaller',
+        ],
+        correctIndex: 1,
+        explanation: 'Edges near users serve cached assets (~5 ms) instead of hitting your origin, cutting latency and origin load.',
+      },
+      {
+        id: 'q2',
+        prompt: 'A CDN reports a cache hit ratio of 0.9. What does that mean?',
+        options: [
+          '10% of requests are served; 90% fail',
+          '90% of requests are served from the edge; the origin sees only ~10%',
+          'The CDN costs 90% less',
+          '90% of assets are invalid',
+        ],
+        correctIndex: 1,
+        explanation: 'Hit ratio = fraction served from cache. 0.9 means the origin handles only the ~10% misses.',
+      },
+      {
+        id: 'q3',
+        prompt: 'Which should you NOT put behind a CDN cache?',
+        options: [
+          'Your logo and CSS',
+          'JavaScript bundles',
+          'Per-user, personalized account balance',
+          'Product listing images',
+        ],
+        correctIndex: 2,
+        explanation: 'CDNs cache shared/static content. Per-user dynamic data must hit your origin, or you serve stale wrong data.',
+      },
+      {
+        id: 'q4',
+        prompt: 'Why does a CDN also help during a traffic spike?',
+        options: [
+          'It adds more database capacity',
+          'It absorbs the surge at the edge, shielding your origin',
+          'It disables your servers to save cost',
+          'It queues all requests in a database',
+        ],
+        correctIndex: 1,
+        explanation: 'With a high hit ratio, most spike traffic is absorbed by edges; the origin barely feels it.',
+      },
+    ],
+  },
+
+  /* ---- Lesson: API styles ---- */
+  {
+    id: 'q-1-lesson-api-styles',
+    type: 'lesson',
+    title: 'REST vs gRPC vs GraphQL',
+    phaseId: 'phase-1',
+    order: 5,
+    xpReward: 100,
+    conceptId: 'c-api-styles',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'Which style is the most browser-native and resource-oriented?',
+        options: ['gRPC', 'GraphQL', 'REST', 'WebSocket'],
+        correctIndex: 2,
+        explanation: 'REST maps resources to URLs and verbs to HTTP methods — trivial to call from any HTTP client, including browsers.',
+      },
+      {
+        id: 'q2',
+        prompt: 'Which is the best fit for internal, low-latency service-to-service calls with streaming?',
+        options: ['REST', 'gRPC', 'GraphQL', 'Form POST'],
+        correctIndex: 1,
+        explanation: 'gRPC uses binary Protocol Buffers over HTTP/2 with codegen and bidirectional streaming — ideal for internal RPC.',
+      },
+      {
+        id: 'q3',
+        prompt: 'What problem does GraphQL primarily solve?',
+        options: [
+          'Encrypting requests',
+          'The client over-/under-fetching by querying exactly the fields it needs',
+          'Replacing TCP',
+          'Caching at the edge',
+        ],
+        correctIndex: 1,
+        explanation: 'One endpoint where the client specifies the exact shape — no over- or under-fetching. Great for varied mobile clients.',
+      },
+      {
+        id: 'q4',
+        prompt: 'gRPC payloads are encoded using…',
+        options: ['JSON', 'XML', 'Protocol Buffers', 'URL-encoded form data'],
+        correctIndex: 2,
+        explanation: 'gRPC serializes with Protocol Buffers (binary, schema-first) over HTTP/2 — compact and fast.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: networking tools ---- */
   {
     id: 'q-1-command-tools',
     type: 'command',
     title: 'Networking CLI Lab',
     phaseId: 'phase-1',
-    order: 3,
+    order: 6,
     xpReward: 150,
     intro: 'You are on-call. Use the terminal to inspect the network.',
     prerequisites: ['q-1-lesson-dns'],
@@ -281,7 +452,7 @@ export const PHASE_1_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Design a URL Shortener',
     phaseId: 'phase-1',
-    order: 4,
+    order: 7,
     xpReward: 300,
     brief:
       'ScaleUp Inc. needs a URL shortener. Build a path from the client to a database that can handle 1,000 reads/sec with p95 latency under 120 ms and 99.9% availability. Add a CDN at the edge and a load balancer in front of your app servers.',
@@ -303,7 +474,7 @@ export const PHASE_1_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Site Unreachable',
     phaseId: 'phase-1',
-    order: 5,
+    order: 8,
     xpReward: 200,
     failureDescription: 'At 14:03, all users report the site "won\'t load". Error rate is 100%.',
     symptoms: [
@@ -349,7 +520,7 @@ export const PHASE_1_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Production URL Shortener',
     phaseId: 'phase-1',
-    order: 6,
+    order: 9,
     xpReward: 500,
     brief:
       'You are now the lead. Design a URL shortener for ScaleUp that survives 5,000 reads/sec with p95 under 80 ms, 99.95% availability, under $3,000/month. Hint: cache reads aggressively — short URLs are read far more than they are created.',

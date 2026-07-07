@@ -332,13 +332,82 @@ export const PHASE_8_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 2. Lesson: consensus ---- */
+  /* ---- 2. Lesson: database internals ---- */
+  {
+    id: 'q-8-lesson-database-internals',
+    type: 'lesson',
+    title: 'Database Internals: B-Trees vs LSM-Trees',
+    phaseId: 'phase-8',
+    order: 2,
+    xpReward: 100,
+    conceptId: 'c-8-database-internals',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'You are choosing a storage engine for a write-heavy time-series workload at 100k+ inserts per second, where reads are mostly recent data. Which engine family fits best and why?',
+        options: [
+          'B-tree, because page-cached point reads are O(log N)',
+          'LSM-tree, because writes append to an in-memory MemTable plus a WAL and only flush immutable SSTables periodically',
+          'B-tree, because in-place page updates avoid compaction entirely',
+          'LSM-tree, because compaction eliminates write amplification',
+        ],
+        correctIndex: 1,
+        explanation:
+          'LSM-trees write to an in-memory MemTable plus an append-only WAL, then flush immutable SSTables — extremely high write throughput. B-trees rewrite a full page per update (high write amp). Compaction does not eliminate WAF; it shifts it into the background and adds read amp if it falls behind.',
+      },
+      {
+        id: 'q2',
+        prompt: 'Which definition of write amplification (WAF) is correct?',
+        options: [
+          'The total logical bytes the application writes per second',
+          'Physical bytes written to the device per logical byte written by the host (lower is better)',
+          'The number of replicas each write is propagated to',
+          'The network round-trip latency a write incurs',
+        ],
+        correctIndex: 1,
+        explanation:
+          'WAF equals physical bytes written divided by logical bytes the user wrote. Lower is better — it costs NAND endurance, IO bandwidth, and power. Typical B-tree WAF is 2 to 4; level-compacted LSMs can hit 10 to 30 once compaction is counted.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'On an LSM-tree, a point read may need to consult the MemTable and several SSTables. What mechanism do LSM engines use to skip SSTables that definitely do not contain the key?',
+        options: [
+          'A prefix trie rebuilt on each flush',
+          'A hash join against the WAL',
+          'A Bloom filter probed before reading the SSTable',
+          'A B-tree secondary index kept in shared memory',
+        ],
+        correctIndex: 2,
+        explanation:
+          'Each SSTable ships with a Bloom filter. The lookup probes it first and skips the SSTable when the filter says the key is absent. This is what keeps LSM point reads competitive despite many immutable levels.',
+      },
+      {
+        id: 'q4',
+        prompt:
+          'What is the most common cause of p99 read-latency spikes in an LSM engine under heavy write load?',
+        options: [
+          'Bloom filters must be rebuilt on every read',
+          'Background compaction falls behind, so reads must scan many overlapping SSTables (read amplification)',
+          'The MemTable fsyncs on every read',
+          'Pages of the underlying B-tree fragment under load',
+        ],
+        correctIndex: 1,
+        explanation:
+          'If compaction cannot keep up with the write rate, overlapping SSTables accumulate and reads must check more of them — even with Bloom filters, p99 spikes. Tiered compaction and I/O throttling mitigate it. The other options fabricate per-read work or reference B-tree mechanics that an LSM does not use.',
+      },
+    ],
+  },
+
+  /* ---- 3. Lesson: consensus ---- */
   {
     id: 'q-8-lesson-consensus',
     type: 'lesson',
     title: 'Raft, Quorum & Split-Brain',
     phaseId: 'phase-8',
-    order: 2,
+    order: 3,
     xpReward: 100,
     conceptId: 'c-8-consensus',
     prerequisites: ['q-8-lesson-multiregion'],
@@ -394,13 +463,82 @@ export const PHASE_8_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 3. Command Lab: failover ---- */
+  /* ---- 4. Lesson: distributed transactions & edge ---- */
+  {
+    id: 'q-8-lesson-distributed-tx',
+    type: 'lesson',
+    title: 'Distributed Transactions, Outbox & Edge',
+    phaseId: 'phase-8',
+    order: 4,
+    xpReward: 100,
+    conceptId: 'c-8-distributed-tx',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'In Two-Phase Commit, what happens if the coordinator crashes after every participant has voted YES in Prepare but before sending COMMIT or ABORT?',
+        options: [
+          'Participants auto-commit on timeout to release their locks',
+          'Participants auto-abort on timeout and roll back',
+          'Participants hold their locks and block, waiting for the coordinator to recover',
+          'Participants run a leader election and proceed independently',
+        ],
+        correctIndex: 2,
+        explanation:
+          'This is the classic blocking failure of 2PC. After Prepare, each participant has promised to commit and cannot unilaterally abort or commit. They hold their locks until the coordinator recovers — throughput collapses and p99 explodes. Most teams avoid raw 2PC for this reason.',
+      },
+      {
+        id: 'q2',
+        prompt: 'What is the defining property of a SAGA compared to Two-Phase Commit?',
+        options: [
+          'It provides full ACID isolation across all steps',
+          'It uses a coordinator to atomically lock all participants',
+          'It gives up isolation (mid-states are visible) and runs compensating transactions to undo earlier steps on failure',
+          'It requires a globally synchronized clock for ordering',
+        ],
+        correctIndex: 2,
+        explanation:
+          'A SAGA breaks a distributed transaction into a sequence of local transactions; on a later-step failure it runs compensating transactions backward. Mid-states are visible (no isolation) but availability is preserved. Design each step idempotent so retries do not double-charge.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'You must atomically update an orders row and publish an OrderPaid event to Kafka. Naive commit-then-publish can lose events when the publish fails after commit. Which pattern solves this?',
+        options: [
+          'Two-Phase Commit between Postgres and Kafka',
+          'A SAGA with choreography between the order and billing services',
+          'Transactional outbox: write the change and an outbox row in the same DB transaction, then a CDC process (e.g. Debezium) publishes to Kafka',
+          'Set Kafka producer retries to infinite',
+        ],
+        correctIndex: 2,
+        explanation:
+          'The outbox writes the domain change and an outbox row in one local DB transaction (atomic). A separate process tails the outbox — Debezium reading the WAL, or a poller — and publishes to Kafka, giving at-least-once delivery with dedup upstream. This is the standard pattern for reliable event publishing.',
+      },
+      {
+        id: 'q4',
+        prompt:
+          'Which statement about serverless and edge compute is accurate for a global, read-heavy workload?',
+        options: [
+          'Edge runtimes can only serve static files; dynamic logic must run in a single region',
+          'Serverless functions have zero cold-start latency by design',
+          'Edge runtimes place code within roughly 5 to 20 ms of the user and cache aggressively, but authoritative state still lives in regional or sticky stores',
+          'Edge compute removes the need for multi-region databases',
+        ],
+        correctIndex: 2,
+        explanation:
+          'Edge runtimes (Cloudflare Workers, Vercel Edge, Deno Deploy) execute in hundreds of POPs near the user for reads, auth, and A/B decisions. But the edge does not own authoritative state — regional primaries, replication, and sticky stores are still required. Cold starts are real (50 ms to 1 s) and must be mitigated.',
+      },
+    ],
+  },
+
+  /* ---- 5. Command Lab: failover ---- */
   {
     id: 'q-8-command-failover',
     type: 'command',
     title: 'Command Lab: Regional Failover',
     phaseId: 'phase-8',
-    order: 3,
+    order: 5,
     xpReward: 150,
     intro:
       'Region us-east-1 is degraded. You are on-call. Drain its Kubernetes nodes and flip DNS traffic to the ap-southeast-1 standby using the AWS / kubectl CLIs.',
@@ -441,13 +579,13 @@ export const PHASE_8_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 4. Architecture: multi-region resilient design ---- */
+  /* ---- 6. Architecture: multi-region resilient design ---- */
   {
     id: 'q-8-arch-multiregion',
     type: 'architecture',
     title: 'Architecture: Multi-Region Resilient Backend',
     phaseId: 'phase-8',
-    order: 4,
+    order: 6,
     xpReward: 300,
     brief:
       'Design a multi-region backend for a global notifications service: 40,000 rps at 95% reads, p95 latency under 80 ms, and 99.999% availability (five 9s), within $8,000/month. Serve users from edge caches in every region; replicate writes through a queue; choose a database that scales horizontally across regions.',
@@ -471,13 +609,13 @@ export const PHASE_8_QUESTS: Quest[] = [
     prerequisites: ['q-8-command-failover'],
   },
 
-  /* ---- 5. Incident: split-brain ---- */
+  /* ---- 7. Incident: split-brain ---- */
   {
     id: 'q-8-incident-splitbrain',
     type: 'incident',
     title: 'Incident: Split-Brain During Partition',
     phaseId: 'phase-8',
-    order: 5,
+    order: 7,
     xpReward: 250,
     failureDescription:
       'At 09:17 a network partition isolates two of your five etcd nodes (a Raft consensus cluster storing service config) from the other three. The 2-node minority has lost contact with the leader and cannot reach quorum; clients routed to it are timing out.',
@@ -526,13 +664,13 @@ export const PHASE_8_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 6. Capstone: global multi-region system ---- */
+  /* ---- 8. Capstone: global multi-region system ---- */
   {
     id: 'q-8-capstone',
     type: 'architecture',
     title: 'Capstone: Global Multi-Region System',
     phaseId: 'phase-8',
-    order: 6,
+    order: 8,
     xpReward: 500,
     brief:
       'You are the staff architect. Design a global multi-region system for 10M users at four-9s (99.99%) uptime. Target: 50,000 rps (97% reads), p95 latency under 120 ms (global cross-region adds round-trip time), under $10,000/month. Use a CDN at the edge for reads, regional app clusters with many replicas, a globally-replicated NoSQL store, and a cache to absorb the read hot path. The queue decouples cross-region writes.',

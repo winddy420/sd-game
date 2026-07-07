@@ -353,13 +353,76 @@ export const PHASE_7_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 3. Command Lab: Kubernetes CLI ---- */
+  /* ---- 3. Lesson: Kubernetes ---- */
+  {
+    id: 'q-7-lesson-kubernetes',
+    type: 'lesson',
+    title: 'Kubernetes Fundamentals',
+    phaseId: 'phase-7',
+    order: 3,
+    xpReward: 100,
+    conceptId: 'c-7-kubernetes',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'What is the smallest deployable unit in Kubernetes?',
+        options: [
+          'A container',
+          'A Pod',
+          'A Deployment',
+          'A Node',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Kubernetes does not run containers directly — it wraps them in Pods. A Pod is the smallest deployable unit and can hold one or more tightly-coupled containers.',
+      },
+      {
+        id: 'q2',
+        prompt: 'What does a Kubernetes Service provide?',
+        options: [
+          'Persistent storage for pods',
+          'A stable network endpoint (IP/DNS) for a set of pods, even as those pods come and go',
+          'The blueprint for a container image',
+          'A way to build Docker images',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Pods are ephemeral — they get new IPs whenever they are recreated. A Service sits in front and exposes one stable IP/DNS name, load-balancing across whatever pods currently match its selector.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'How does Kubernetes react when a node crashes and kills pods that a Deployment expects to be running?',
+        options: [
+          'It requires manual intervention to recover',
+          'Its reconciliation loop notices the drift and reschedules replacement pods on healthy nodes',
+          'It restarts the crashed node first',
+          'It reverts the Deployment spec to zero replicas',
+        ],
+        correctIndex: 1,
+        explanation:
+          'You declare desired state (for example, 3 replicas). Kubernetes continuously reconciles reality to match. If a node dies and takes pods with it, K8s schedules replacements elsewhere — this self-healing is the whole point.',
+      },
+      {
+        id: 'q4',
+        prompt:
+          'Which object do you typically author to declaratively manage a set of replicated pods with rolling updates?',
+        options: ['A ReplicaSet, directly', 'A Pod', 'A Deployment', 'A Service'],
+        correctIndex: 2,
+        explanation:
+          'A Deployment wraps a ReplicaSet and adds declarative rolling updates and rollbacks. The ReplicaSet is owned and managed by the Deployment, so you rarely touch it directly.',
+      },
+    ],
+  },
+
+  /* ---- 4. Command Lab: Kubernetes CLI ---- */
   {
     id: 'q-7-command-k8s',
     type: 'command',
     title: 'kubectl Lab',
     phaseId: 'phase-7',
-    order: 3,
+    order: 4,
     xpReward: 150,
     intro: 'You deployed the checkout service to Kubernetes. Verify it is healthy and roll out an update.',
     prerequisites: ['q-7-command-docker'],
@@ -397,13 +460,80 @@ export const PHASE_7_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 4. Command Lab: Terraform CLI ---- */
+  /* ---- 5. Lesson: Terraform ---- */
+  {
+    id: 'q-7-lesson-terraform',
+    type: 'lesson',
+    title: 'Infrastructure as Code with Terraform',
+    phaseId: 'phase-7',
+    order: 5,
+    xpReward: 100,
+    conceptId: 'c-7-terraform',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'Terraform is described as declarative. What does that mean in practice?',
+        options: [
+          'You write step-by-step commands telling the tool exactly how to create each resource',
+          'You describe the desired end state and Terraform computes the diff and figures out how to reach it',
+          'It can only manage infrastructure through long-lived shell scripts',
+          'It only works inside containers',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Declarative means you write what you want (for example, 3 subnets), and Terraform compares desired vs actual state to produce a plan. Running it twice is idempotent — nothing happens the second time.',
+      },
+      {
+        id: 'q2',
+        prompt: 'What is the purpose of `terraform plan`?',
+        options: [
+          'It applies changes to the real cloud',
+          'It previews the diff — what will be created, changed, or destroyed — without modifying anything',
+          'It deletes every resource tracked in state',
+          'It initializes the working directory and downloads providers',
+        ],
+        correctIndex: 1,
+        explanation:
+          '`terraform plan` computes the diff between your code and the real cloud and prints it, so you can review what would change before anything is touched. The change is executed separately by `terraform apply`.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'Why should Terraform state files be stored remotely (for example, in S3 with a lock table) and never committed to git?',
+        options: [
+          'Because they are too large for git to store',
+          'To prevent concurrent runs from corrupting state and to keep secrets out of version control',
+          'Because Terraform refuses to read local state files',
+          'So that resources are recreated automatically on every run',
+        ],
+        correctIndex: 1,
+        explanation:
+          'State tracks reality and may contain secrets. Remote state with locking prevents two operators from running `apply` at once and corrupting it, and keeping it out of git avoids leaking sensitive values.',
+      },
+      {
+        id: 'q4',
+        prompt: 'What makes Terraform idempotent?',
+        options: [
+          'Each run re-creates every resource from scratch',
+          'Running it twice produces the same end state — the second run finds nothing to change',
+          'It can only be run once per project',
+          'It randomizes resource names on each apply',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Because Terraform reconciles declared desired state against real state, applying the same config a second time finds them already matching and does nothing.',
+      },
+    ],
+  },
+
+  /* ---- 6. Command Lab: Terraform CLI ---- */
   {
     id: 'q-7-command-terraform',
     type: 'command',
     title: 'Terraform Lab',
     phaseId: 'phase-7',
-    order: 4,
+    order: 6,
     xpReward: 150,
     intro: 'Provision a new Postgres instance with Terraform. Review the change before applying it.',
     prerequisites: ['q-7-command-k8s'],
@@ -425,13 +555,13 @@ export const PHASE_7_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 5. Lesson: CI/CD & deployment strategies ---- */
+  /* ---- 7. Lesson: CI/CD & deployment strategies ---- */
   {
     id: 'q-7-lesson-cicd',
     type: 'lesson',
     title: 'CI/CD & Deployment Strategies',
     phaseId: 'phase-7',
-    order: 5,
+    order: 7,
     xpReward: 100,
     conceptId: 'c-7-cicd',
     prerequisites: ['q-7-command-terraform'],
@@ -482,13 +612,75 @@ export const PHASE_7_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 6. Incident: bad deploy ---- */
+  /* ---- 8. Lesson: Observability ---- */
+  {
+    id: 'q-7-lesson-observability',
+    type: 'lesson',
+    title: 'Observability: Metrics, Logs, Traces',
+    phaseId: 'phase-7',
+    order: 8,
+    xpReward: 100,
+    conceptId: 'c-7-observability',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'Which pillar of observability tells you where the 800ms went across services for a single request?',
+        options: ['Metrics', 'Logs', 'Traces', 'Alerts'],
+        correctIndex: 2,
+        explanation:
+          'A trace follows one request across every service it touches, broken into spans. When latency spikes, the trace shows which span — auth, DB, payment — ate the time.',
+      },
+      {
+        id: 'q2',
+        prompt: 'Under the RED method, which three numbers should you track for every service endpoint?',
+        options: [
+          'Requests, Events, Deadlocks',
+          'Rate, Errors, Duration',
+          'RAM, Egress, Disks',
+          'Replicas, Environments, Deployments',
+        ],
+        correctIndex: 1,
+        explanation:
+          'RED = Rate (requests/s), Errors (error rate), Duration (latency). Together they capture the health of any service endpoint.',
+      },
+      {
+        id: 'q3',
+        prompt: 'In the Prometheus + Grafana stack, what does Prometheus do?',
+        options: [
+          'It renders dashboards in the browser',
+          'It scrapes the /metrics endpoint of each app on a schedule and stores the resulting time series',
+          'It tails your application logs',
+          'It distributes traffic across pods',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Prometheus pulls (scrapes) metrics from the `/metrics` endpoint of each app every few seconds and stores them as time series. Grafana queries Prometheus to render dashboards and fire alerts.',
+      },
+      {
+        id: 'q4',
+        prompt: 'According to the lesson, which is the most actionable way to alert?',
+        options: [
+          'Fire whenever CPU usage exceeds 80%',
+          'Alert on burn rate toward an SLO (e.g. p95 under 200ms for 99.9% of requests) so pages reflect user-visible harm',
+          'Page on every warning log line',
+          'Send one alert per minute regardless of severity',
+        ],
+        correctIndex: 1,
+        explanation:
+          'CPU at 80% is just a number — it may be fine. Alerting on burn rate against an SLO ties pages to real user impact, and every page is actionable. A noisy alert everyone ignores is worse than no alert.',
+      },
+    ],
+  },
+
+  /* ---- 9. Incident: bad deploy ---- */
   {
     id: 'q-7-incident-deploy',
     type: 'incident',
     title: 'Incident: Bad Deploy',
     phaseId: 'phase-7',
-    order: 6,
+    order: 9,
     xpReward: 200,
     failureDescription:
       "03:12 — right after the v2.4 deploy of the checkout service went to 100%, the error rate jumped from 0.1% to 18% and p95 latency on /checkout spiked from 200ms to 2s. The on-call pager is on fire.",
@@ -534,13 +726,13 @@ export const PHASE_7_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 7. Capstone: Resilient deployment pipeline runtime ---- */
+  /* ---- 10. Capstone: Resilient deployment pipeline runtime ---- */
   {
     id: 'q-7-capstone',
     type: 'architecture',
     title: 'Capstone: Resilient Production Runtime',
     phaseId: 'phase-7',
-    order: 7,
+    order: 10,
     xpReward: 500,
     brief:
       "You are now the platform lead. Design the production runtime for ScaleUp's checkout service — the path requests take at runtime — that can survive 10,000 rps with p95 under 100ms, four-9s (99.99%) availability, under $4,500/month. This is the DevOps phase: think about how you ship code safely and observe it. Front it with a load balancer, run multiple app replicas for self-healing, back it with durable SQL storage, and put a queue in front to absorb bursts so a bad deploy or a downstream hiccup does not take the whole system down.",

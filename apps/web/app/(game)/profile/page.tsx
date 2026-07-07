@@ -61,7 +61,7 @@ export default function ProfilePage() {
               <div className="text-xs text-gray-400">{t}</div>
               <div className="mt-1 text-2xl font-bold">
                 {doneByType[t] ?? 0}
-                <span className="text-sm text-gray-500">/{byType[t] ?? 0}</span>
+                <span className="text-sm text-gray-400">/{byType[t] ?? 0}</span>
               </div>
             </Card>
           ))}

@@ -87,7 +87,7 @@ export function CommandQuestView({
                 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
                 : i === stepIdx
                   ? 'border-accent/40 bg-accent/10 text-accent-soft'
-                  : 'border-white/5 text-gray-500',
+                  : 'border-white/5 text-gray-400',
             )}
           >
             {solved[i] ? <Check className="h-3 w-3" /> : <span>{i + 1}</span>}
@@ -103,7 +103,7 @@ export function CommandQuestView({
             <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
             <span className="h-3 w-3 rounded-full bg-green-500/70" />
           </div>
-          <span className="ml-2 flex items-center gap-1.5 text-xs text-gray-500">
+          <span className="ml-2 flex items-center gap-1.5 text-xs text-gray-400">
             <Terminal className="h-3.5 w-3.5" /> oncall@scaleup:~
           </span>
         </div>
@@ -115,7 +115,7 @@ export function CommandQuestView({
               className={cn(
                 'whitespace-pre-wrap break-words',
                 line.kind === 'input' && 'text-gray-100',
-                line.kind === 'output' && 'text-gray-500',
+                line.kind === 'output' && 'text-gray-400',
                 line.kind === 'success' && 'text-emerald-400',
                 line.kind === 'error' && 'text-red-400',
                 line.kind === 'hint' && 'text-amber-400',
@@ -182,7 +182,7 @@ export function CommandQuestView({
       )}
 
       {!allDone && solved.some((s) => !s) && (
-        <p className="text-center text-xs text-gray-500">
+        <p className="text-center text-xs text-gray-400">
           Tip: commands are matched flexibly — press Enter to run.
         </p>
       )}

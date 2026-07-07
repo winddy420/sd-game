@@ -258,13 +258,79 @@ export const PHASE_6_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 2. Lesson: resilience patterns ---- */
+  /* ---- 2. Lesson: auto-scaling ---- */
+  {
+    id: 'q-6-lesson-autoscaling',
+    type: 'lesson',
+    title: 'Auto-Scaling Policies',
+    phaseId: 'phase-6',
+    order: 2,
+    xpReward: 100,
+    conceptId: 'c-6-autoscaling',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'What is the primary purpose of a cooldown period in an auto-scaling policy?',
+        options: [
+          'To trigger scaling actions faster when load spikes',
+          'To disable health checks during the scaling window',
+          'To prevent thrashing where a metric blip causes rapid scale-out then immediate scale-in cycles',
+          'To increase the maximum instance count automatically',
+        ],
+        correctIndex: 2,
+        explanation:
+          'Without a cooldown, a metric blip triggers a scale-out, the new capacity drives the metric back down, and you scale right back in — thrashing. Typical cooldowns are 3–5 minutes for scale-out and 10–15 minutes for scale-in, because newly added instances need time to warm up before they serve traffic.',
+      },
+      {
+        id: 'q2',
+        prompt: 'Which scaling policy matches "keep CPU at 60%" — the scaler does the math for you?',
+        options: [
+          'Target tracking',
+          'Step scaling',
+          'Scheduled scaling',
+          'Predictive scaling',
+        ],
+        correctIndex: 0,
+        explanation:
+          'Target tracking is the simplest and most common policy: you specify a desired metric value (CPU 60%, queue depth 100) and the auto-scaler computes how many instances to add or remove to hit it. Step scaling and scheduled scaling require you to define the actions yourself.',
+      },
+      {
+        id: 'q3',
+        prompt: 'Why does predictive scaling outperform pure reactive scaling for spiky, time-of-day traffic?',
+        options: [
+          'It removes the need to collect any metrics',
+          'It is always cheaper than reactive scaling regardless of workload',
+          'It permanently pins the fleet to its maximum size',
+          'It uses historical traffic patterns to pre-warm capacity before the spike arrives, so instances are ready when users show up',
+        ],
+        correctIndex: 3,
+        explanation:
+          'Reactive scaling only fires after the metric crosses a threshold, and freshly added instances need warm-up time — so users feel the spike before capacity catches up. Predictive scaling trains on weeks of history, forecasts the next hour, and provisions capacity in advance.',
+      },
+      {
+        id: 'q4',
+        prompt: 'What is the critical safety net that prevents a runaway metric from provisioning thousands of instances?',
+        options: [
+          'Disabling all cooldowns',
+          'Setting min and max instance bounds on the auto-scaling group',
+          'Using a longer warm-up time',
+          'Sending all traffic through a single instance',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Min/max bounds cap the fleet size. The minimum preserves a warm baseline; the maximum prevents a misbehaving metric (or attack-driven load) from scaling out unbounded and blowing up your bill. Always set both.',
+      },
+    ],
+  },
+
+  /* ---- 3. Lesson: resilience patterns ---- */
   {
     id: 'q-6-lesson-resilience',
     type: 'lesson',
     title: 'Circuit Breaker & Bulkhead',
     phaseId: 'phase-6',
-    order: 2,
+    order: 3,
     xpReward: 100,
     conceptId: 'c-6-resilience',
     prerequisites: ['q-6-lesson-scaling'],
@@ -324,13 +390,79 @@ export const PHASE_6_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 3. Command Lab: autoscaling CLI ---- */
+  /* ---- 4. Lesson: chaos engineering & cascading failures ---- */
+  {
+    id: 'q-6-lesson-chaos',
+    type: 'lesson',
+    title: 'Chaos Engineering & Cascades',
+    phaseId: 'phase-6',
+    order: 4,
+    xpReward: 100,
+    conceptId: 'c-6-chaos-cascade',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'In a classic cascading failure, what typically happens after a database slows down (but does not crash)?',
+        options: [
+          'The system runs faster due to load redistribution',
+          'The load balancer automatically provisions more database replicas',
+          'App servers hold connections longer, exhausting connection and thread pools until health checks fail and the LB drains them',
+          'Nothing — a slow database cannot cause an outage unless it fully crashes',
+        ],
+        correctIndex: 2,
+        explanation:
+          'This is the textbook cascade: slow queries hold connections longer → connection pool exhausted → threads pile up waiting → thread pool exhausted → health checks fail → LB drains app servers → zero capacity. The blast radius grew because nothing failed fast or isolated the damage.',
+      },
+      {
+        id: 'q2',
+        prompt: 'What is chaos engineering?',
+        options: [
+          'Deliberately injecting failures (kill a node, add latency, drop network) into production-like systems to validate that resilience defenses actually work',
+          'Randomly deleting code in production without controls',
+          'A testing shortcut that replaces unit tests',
+          'Rotating engineers on-call to keep them alert',
+        ],
+        correctIndex: 0,
+        explanation:
+          'Chaos engineering is the disciplined injection of failures — killing nodes, adding latency, dropping traffic between services — to test whether circuit breakers, bulkheads, timeouts, and failovers actually hold. Popularized by Netflix through its Chaos Monkey tool.',
+      },
+      {
+        id: 'q3',
+        prompt: 'Which of these is the most common amplifier that turns a small failure into a system-wide cascade?',
+        options: [
+          'Too few dashboards',
+          'Using too many availability zones',
+          'Having too many circuit breakers configured',
+          'Retry storms — clients time out and retry, multiplying load on an already-sick service ("thundering herd")',
+        ],
+        correctIndex: 3,
+        explanation:
+          'Retry storms are a classic amplifier: clients time out and retry, often all at once, multiplying load on an already-sick service. Other common amplifiers include unbounded connection/thread pools, cache stampedes, cross-service dependency chains, and lack of backpressure.',
+      },
+      {
+        id: 'q4',
+        prompt: 'What is the first step of a chaos experiment, before injecting any failure?',
+        options: [
+          'Kill the most important database immediately to maximize impact',
+          'Define a measurable steady-state hypothesis — e.g., "p95 latency < 100ms, error rate < 0.1%"',
+          'Disable all alerts to reduce noise during the experiment',
+          'Take the entire system offline first',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Before injecting failure you must define what "healthy" looks like as a measurable steady-state hypothesis. Then inject a failure, observe whether the hypothesis still holds, and learn and fix if it does not. Without a hypothesis you cannot tell a successful experiment from a failed one.',
+      },
+    ],
+  },
+
+  /* ---- 5. Command Lab: autoscaling CLI ---- */
   {
     id: 'q-6-command-autoscale',
     type: 'command',
     title: 'Auto-Scaling CLI Lab',
     phaseId: 'phase-6',
-    order: 3,
+    order: 5,
     xpReward: 150,
     intro:
       'Traffic is climbing. Use the terminal to inspect your deployment and configure horizontal auto-scaling for the `api` service.',
@@ -372,13 +504,13 @@ export const PHASE_6_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 4. Architecture: scale horizontally with replicas + cache + primary/replica DB ---- */
+  /* ---- 6. Architecture: scale horizontally with replicas + cache + primary/replica DB ---- */
   {
     id: 'q-6-arch-replicas',
     type: 'architecture',
     title: 'Scale Out the API',
     phaseId: 'phase-6',
-    order: 4,
+    order: 6,
     xpReward: 250,
     brief:
       'ScaleUp Inc. just landed a big contract — the API now needs to handle 15,000 reads/sec at p95 under 90 ms, 99.99% availability, under $4,000/month. The traffic is 90% reads, so cache aggressively and read from replicas; keep writes on the primary. Add enough app replicas behind the load balancer to clear the throughput bar.',
@@ -394,13 +526,13 @@ export const PHASE_6_QUESTS: Quest[] = [
     prerequisites: ['q-6-command-autoscale'],
   },
 
-  /* ---- 5. Incident: cascading failure ---- */
+  /* ---- 7. Incident: cascading failure ---- */
   {
     id: 'q-6-incident-cascade',
     type: 'incident',
     title: 'Incident: The Slow Death',
     phaseId: 'phase-6',
-    order: 5,
+    order: 7,
     xpReward: 200,
     failureDescription:
       'At 03:11, on-call gets paged: the API error rate has climbed from 0.1% to 38% in six minutes. Latency is climbing. Users are seeing 504s. The dashboard shows DB query time jumped ~9× (10ms → 90ms), then app server memory spiked, then health checks started failing.',
@@ -450,13 +582,13 @@ export const PHASE_6_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 6. Capstone: streaming service ---- */
+  /* ---- 8. Capstone: streaming service ---- */
   {
     id: 'q-6-capstone',
     type: 'architecture',
     title: 'Capstone: Design a Streaming Service',
     phaseId: 'phase-6',
-    order: 6,
+    order: 8,
     xpReward: 500,
     brief:
       'You are the lead architect for "Streamly", a Netflix-like video streaming service. Catalog browsing and video metadata are 98% reads and must feel instant worldwide — edge caching is mandatory. Design a path that survives 25,000 req/sec at p95 under 70 ms, 99.99% availability, under $5,000/month. Use a CDN at the edge, a load balancer in front of stateless app servers, a cache for hot metadata, and a NoSQL store for the catalog. Kafka is available if you want to ingest watch events asynchronously.',

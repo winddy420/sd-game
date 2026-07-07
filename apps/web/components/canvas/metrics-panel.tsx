@@ -20,7 +20,7 @@ export function MetricsPanel({
         <p className="text-sm text-gray-400">
           Build a topology, then run the simulation to see your metrics vs. the targets.
         </p>
-        <div className="mt-3 space-y-1 text-xs text-gray-500">
+        <div className="mt-3 space-y-1 text-xs text-gray-400">
           {target.minRps && <div>· Handle ≥ {formatNumber(target.minRps)} rps</div>}
           {target.maxLatencyP95 && <div>· p95 latency ≤ {target.maxLatencyP95} ms</div>}
           {target.maxCostPerMonth && <div>· Cost ≤ {formatMoney(target.maxCostPerMonth)}/mo</div>}
@@ -82,7 +82,7 @@ export function MetricsPanel({
               {result.metrics.connected ? '● Connected' : '○ Disconnected'}
             </div>
             {result.hasRequiredComponents ? (
-              <div className="text-gray-500">All required components present</div>
+              <div className="text-gray-400">All required components present</div>
             ) : (
               <div className="text-red-400">
                 Missing: {result.missingTypes.join(', ')}
@@ -132,7 +132,7 @@ function MetricTile({
         {icon} {label}
       </div>
       <div className="mt-0.5 text-sm font-semibold">{value}</div>
-      {target && <div className="text-[10px] text-gray-500">target {target}</div>}
+      {target && <div className="text-[10px] text-gray-400">target {target}</div>}
     </div>
   );
 }

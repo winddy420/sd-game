@@ -56,7 +56,7 @@ export default function ReviewPage() {
             </>
           ) : (
             <>
-              <Brain className="mx-auto mb-3 h-10 w-10 text-gray-500" />
+              <Brain className="mx-auto mb-3 h-10 w-10 text-gray-400" />
               <h2 className="text-xl font-bold">Nothing due right now</h2>
               <p className="mt-1 text-sm text-gray-400">
                 Learn new concepts and reviews will queue up here automatically.

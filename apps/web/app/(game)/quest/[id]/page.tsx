@@ -46,7 +46,7 @@ export default function QuestPage() {
       <div className="space-y-4">
         <BackLink phaseId={quest.phaseId} />
         <Card className="text-center">
-          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500" />
+          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
           <h1 className="text-xl font-bold">{quest.title}</h1>
           <p className="mt-1 text-sm text-gray-400">Complete these first to unlock:</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">

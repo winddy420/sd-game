@@ -28,7 +28,7 @@ export function ComponentNode({ id, data, selected }: NodeProps) {
         <span className="text-lg">{def.icon}</span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">{def.name}</div>
-          <div className="text-[10px] uppercase tracking-wide text-gray-500">{def.type}</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400">{def.type}</div>
         </div>
         {d.replicas > 1 && (
           <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent-soft">
@@ -36,7 +36,7 @@ export function ComponentNode({ id, data, selected }: NodeProps) {
           </span>
         )}
       </div>
-      <div className="mt-1.5 flex justify-between text-[10px] text-gray-500">
+      <div className="mt-1.5 flex justify-between text-[10px] text-gray-400">
         <span>{formatNumber(def.capacity)} rps</span>
         <span>${def.costPerMonth}/mo</span>
       </div>

@@ -494,13 +494,152 @@ export const PHASE_2_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: Rate Limiting ---- */
+  {
+    id: 'q-2-lesson-rate-limiting',
+    type: 'lesson',
+    title: 'Rate Limiting: Token Bucket vs Leaky Bucket',
+    phaseId: 'phase-2',
+    order: 3,
+    xpReward: 100,
+    conceptId: 'c-2-rate-limiting',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'A public mobile API gets bursty traffic whenever users pull-to-refresh. Which algorithm lets you tolerate short bursts up to a cap while still holding a steady long-run average?',
+        options: [
+          'Fixed window counter — it smooths traffic per clock minute',
+          'Token bucket — it allows bursts up to bucket capacity and refills at a fixed rate',
+          'Leaky bucket — it processes requests strictly in arrival order',
+          'Sliding window counter — it has no capacity concept',
+        ],
+        correctIndex: 1,
+        explanation:
+          'A token bucket holds up to `capacity` tokens and refills at `rate` tokens/sec. A burst can drain the bucket (allowed), but the long-run average is bounded by `rate`. Leaky bucket, by contrast, enforces a flat outflow and smooths/rejects bursts rather than admitting them.',
+      },
+      {
+        id: 'q2',
+        prompt:
+          'You have a legacy database that falls over on bursty writes. Which rate-limiting strategy best protects it?',
+        options: [
+          'Token bucket with a very large capacity, so writes queue in the bucket',
+          'Leaky bucket with a strict outflow rate matched to what the DB can sustain',
+          'Fixed window counter with 1-minute windows',
+          'No limiter — let clients retry with exponential backoff',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Leaky bucket enforces a steady outflow regardless of arrival pattern, smoothing bursts before they reach the downstream. A large-capacity token bucket would *allow* the very bursts that kill the DB. Client-side backoff is advisory, not a guarantee.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'Your limiter rejects a request. What status and header should the response carry, and why?',
+        options: [
+          '503 Service Unavailable and no extra header — clients will retry on their own',
+          '403 Forbidden and no extra header — the client is banned',
+          '429 Too Many Requests with Retry-After so well-behaved clients back off instead of hammering harder',
+          '400 Bad Request with Retry-After — the request was malformed',
+        ],
+        correctIndex: 2,
+        explanation:
+          '429 Too Many Requests is the RFC 6585 status for rate limiting. `Retry-After` tells clients exactly when to retry; without it, clients guess — usually by retrying *faster*, which makes the overload worse. 503 implies the server is down, not that the client is over quota.',
+      },
+      {
+        id: 'q4',
+        prompt: 'Where in the request path should rate limiting ideally sit?',
+        options: [
+          'Inside the database, throttling each query as it executes',
+          'In the client SDK only — the server trusts the client',
+          'At the edge (API gateway / reverse proxy), so abusive traffic never reaches app servers or the DB',
+          'On a single designated app-server instance',
+        ],
+        correctIndex: 2,
+        explanation:
+          'Limiting at the edge rejects abusive requests before they consume compute, memory, or database resources. Per-DB limiting is too late (the query already crossed the wire), client-only limiting assumes trust you don\'t have, and a single app instance can\'t see fleet-wide traffic.',
+      },
+    ],
+  },
+
+  /* ---- Lesson: Web Security ---- */
+  {
+    id: 'q-2-lesson-web-security',
+    type: 'lesson',
+    title: 'Web Security Basics',
+    phaseId: 'phase-2',
+    order: 4,
+    xpReward: 100,
+    conceptId: 'c-2-web-security',
+    prerequisites: [],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'A login query concatenates user input, so `admin\' OR \'1\'=\'1` returns every user row. What is the correct fix?',
+        options: [
+          'Strip the characters \' and ; from input before building the query',
+          'Use parameterized queries / prepared statements so input is bound as a value, never concatenated into SQL',
+          'Move the query into a stored procedure and keep concatenating inside it',
+          'Add an Access-Control-Allow-Origin header to the response',
+        ],
+        correctIndex: 1,
+        explanation:
+          'With parameterized queries the SQL template and the values travel separately; the input is bound as data, so it can never be parsed as SQL. Character-stripping is brittle blocklisting that attackers bypass with encoding tricks. Stored procedures do not help if you still concatenate inside them.',
+      },
+      {
+        id: 'q2',
+        prompt:
+          'A teammate says, "We added CORS, so attackers can\'t hit our API." What is wrong with this claim?',
+        options: [
+          'Nothing — CORS is the primary server-side authorization check',
+          'CORS is enforced by browsers to protect users; non-browser clients like curl, Postman, or an attacker\'s server ignore it entirely. You still need AuthN/AuthZ on the server.',
+          'CORS only works when the server runs over HTTPS',
+          'CORS has to be enabled on the client, not on the server',
+        ],
+        correctIndex: 1,
+        explanation:
+          'CORS is a *browser-enforced* mechanism that prevents a rogue website from making authenticated requests to another origin *on the user\'s behalf*. Non-browser clients are not bound by it. It is a complement to server-side auth, never a replacement for it.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'A templating bug lets user content inject `<script src="https://evil.com/x.js">` into your HTML. Which response header most strongly mitigates the script *executing* in victims\' browsers?',
+        options: [
+          'Strict-Transport-Security',
+          'X-Content-Type-Options: nosniff',
+          'Content-Security-Policy with `script-src \'self\'` and `object-src \'none\'`',
+          'Access-Control-Allow-Origin: *',
+        ],
+        correctIndex: 2,
+        explanation:
+          'A strict CSP tells the browser to execute scripts only from allow-listed sources, so the injected `evil.com` script is blocked at execution time even though it reached the HTML. HSTS only forces HTTPS, `nosniff` addresses MIME confusion, and CORS is unrelated to script execution.',
+      },
+      {
+        id: 'q4',
+        prompt:
+          'You ship `Access-Control-Allow-Origin: *` together with `Access-Control-Allow-Credentials: true`. What happens in browsers?',
+        options: [
+          'It works fine — any origin may now make credentialed (cookie) requests to you',
+          'Browsers reject the credentialed response; for credentials you must echo a specific allow-listed origin, not the wildcard',
+          'The server returns 500 on every cross-origin request',
+          'CORS is silently disabled, so all cross-origin requests are blocked',
+        ],
+        correctIndex: 1,
+        explanation:
+          'The Fetch spec forbids `Access-Control-Allow-Credentials: true` together with a wildcard origin — otherwise any site could make authenticated requests on a visitor\'s behalf. For credentialed traffic you must echo the specific request Origin, validated against an allowlist.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: build & run a service ---- */
   {
     id: 'q-2-command-docker-build',
     type: 'command',
     title: 'Build & Run a Service (Docker)',
     phaseId: 'phase-2',
-    order: 3,
+    order: 5,
     xpReward: 150,
     intro:
       'A teammate wrote an Express API but left no run instructions. Use Docker to build the image, run it locally, and confirm it answers.',
@@ -548,7 +687,7 @@ export const PHASE_2_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Design a Rate-Limited Public API',
     phaseId: 'phase-2',
-    order: 4,
+    order: 6,
     xpReward: 250,
     brief:
       'ScaleUp is opening its Orders API to external clients. Design a path from the internet through an API Gateway (which handles auth + rate limiting) to your app servers and database. Target: 2,000 rps with 80% reads, p95 latency ≤ 150 ms, 99.9% availability, under $2,500/month. Hint: the gateway absorbs the rate-limiting work; cache reads to keep the DB calm.',
@@ -579,7 +718,7 @@ export const PHASE_2_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Token Leak Abuse',
     phaseId: 'phase-2',
-    order: 5,
+    order: 7,
     xpReward: 200,
     failureDescription:
       'Friday 02:14. On-call is paged: billing reports a 50x spike in "password-reset email" sends in 10 minutes, threatening to exhaust the email provider quota and bankrupt the reset flow.',
@@ -633,7 +772,7 @@ export const PHASE_2_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Design an Authentication Service',
     phaseId: 'phase-2',
-    order: 6,
+    order: 8,
     xpReward: 500,
     brief:
       'You are now the lead. Design ScaleUp\'s Authentication Service: it issues and validates tokens, manages sessions, and serves login/refresh/logout for the whole product. Target: 3,000 rps (90% reads — token validation dominates), p95 ≤ 120 ms, 99.95% availability, under $3,500/month. Required: an API Gateway fronting your app servers, a cache for fast token/session lookups, and a SQL DB as the system of record for credentials. Hint: validation must NEVER hit the DB on the hot path — cache aggressively and keep tokens short-lived.',

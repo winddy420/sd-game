@@ -46,7 +46,7 @@ export default function HomePage() {
           </div>
           <div className="flex flex-col gap-2 text-center">
             <div className="text-3xl font-bold text-accent-soft">{formatNumber(player.totalXp)}</div>
-            <div className="text-xs uppercase tracking-wide text-gray-500">Total XP</div>
+            <div className="text-xs uppercase tracking-wide text-gray-400">Total XP</div>
           </div>
         </div>
       </Card>
@@ -121,7 +121,7 @@ export default function HomePage() {
                         <span className="text-xl">{QUEST_TYPE_META[q.type].icon}</span>
                         <div>
                           <div className="font-medium">{q.title}</div>
-                          <div className="text-xs text-gray-500">{phase.title}</div>
+                          <div className="text-xs text-gray-400">{phase.title}</div>
                         </div>
                       </div>
                       <Badge>+{q.xpReward}</Badge>
