@@ -535,7 +535,7 @@ export const PHASE_8_QUESTS: Quest[] = [
     order: 6,
     xpReward: 500,
     brief:
-      'You are the staff architect. Design a global multi-region system for 10M users at 99.99% uptime. Target: 50,000 rps (97% reads), p95 latency under 70 ms, five-9 availability, under $10,000/month. Use a CDN at the edge for reads, regional app clusters, a globally-replicated NoSQL store, and a cache to absorb the read hot path. The queue decouples cross-region writes.',
+      'You are the staff architect. Design a global multi-region system for 10M users at four-9s (99.99%) uptime. Target: 50,000 rps (97% reads), p95 latency under 120 ms (global cross-region adds round-trip time), under $10,000/month. Use a CDN at the edge for reads, regional app clusters with many replicas, a globally-replicated NoSQL store, and a cache to absorb the read hot path. The queue decouples cross-region writes.',
     allowedComponents: [
       'cdn-cloudflare',
       'dns-route53',
@@ -552,9 +552,9 @@ export const PHASE_8_QUESTS: Quest[] = [
     ],
     requiredComponentTypes: ['cdn', 'loadBalancer', 'appServer', 'dbNoSQL', 'cache'],
     target: {
-      maxLatencyP95: 70,
+      maxLatencyP95: 120,
       minRps: 50_000,
-      minAvailability: 0.99999,
+      minAvailability: 0.9999,
       maxCostPerMonth: 10_000,
     },
     traffic: { rps: 50_000, readRatio: 0.97 },

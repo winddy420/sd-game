@@ -88,9 +88,23 @@ export const useGameStore = create<GameState>((set, get) => ({
       return 0;
     }
     player.completedQuestIds = [...player.completedQuestIds, quest.id];
-    if (quest.type === 'lesson' && !player.learnedConceptIds.includes(quest.conceptId)) {
-      player.learnedConceptIds = [...player.learnedConceptIds, quest.conceptId];
+
+    // Learning a concept enqueues it for spaced repetition — otherwise the
+    // review queue is always empty and the SR loop never starts.
+    if (quest.type === 'lesson') {
+      if (!player.learnedConceptIds.includes(quest.conceptId)) {
+        player.learnedConceptIds = [...player.learnedConceptIds, quest.conceptId];
+      }
+      const now = Date.now();
+      const hasCard = get().reviewCards.some((c) => c.conceptId === quest.conceptId);
+      if (!hasCard) {
+        const card = newCard(quest.conceptId, now);
+        const cards = [...get().reviewCards, card];
+        set({ reviewCards: cards });
+        void saveReviewCard(card);
+      }
     }
+
     player.totalXp += quest.xpReward;
 
     awardBadges(player, get);

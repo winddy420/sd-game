@@ -450,8 +450,8 @@ export const PHASE_3_QUESTS: Quest[] = [
         prompt:
           'Query the 10 most recent orders for user 42 from the `orders` table (columns: id, user_id, created_at).',
         acceptedPatterns: [
-          '(?i)^\\s*SELECT\\s+.*FROM\\s+orders\\s+WHERE\\s+user_id\\s*=\\s*42\\b.*ORDER\\s+BY\\s+created_at\\b.*DESC\\b.*LIMIT\\s+10',
-          '(?i)^\\s*SELECT\\s+.*FROM\\s+orders\\s+WHERE\\s+user_id\\s*=\\s*42\\b.*LIMIT\\s+10',
+          '^\\s*SELECT\\s+.*FROM\\s+orders\\s+WHERE\\s+user_id\\s*=\\s*42\\b.*ORDER\\s+BY\\s+created_at\\b.*DESC\\b.*LIMIT\\s+10',
+          '^\\s*SELECT\\s+.*FROM\\s+orders\\s+WHERE\\s+user_id\\s*=\\s*42\\b.*LIMIT\\s+10',
         ],
         sampleAnswer:
           'SELECT id, user_id, created_at FROM orders WHERE user_id = 42 ORDER BY created_at DESC LIMIT 10;',
@@ -461,8 +461,8 @@ export const PHASE_3_QUESTS: Quest[] = [
         prompt:
           'Inspect the query plan — run EXPLAIN on the same query to check whether an index is being used.',
         acceptedPatterns: [
-          '(?i)^\\s*EXPLAIN(\\s+ANALYZE)?\\s+SELECT\\s+.*FROM\\s+orders\\s+WHERE\\s+user_id\\s*=\\s*42\\b',
-          '(?i)^\\s*EXPLAIN(\\s+ANALYZE)?\\s+SELECT\\s+.*FROM\\s+orders\\b',
+          '^\\s*EXPLAIN(\\s+ANALYZE)?\\s+SELECT\\s+.*FROM\\s+orders\\s+WHERE\\s+user_id\\s*=\\s*42\\b',
+          '^\\s*EXPLAIN(\\s+ANALYZE)?\\s+SELECT\\s+.*FROM\\s+orders\\b',
         ],
         sampleAnswer:
           'EXPLAIN SELECT id, user_id, created_at FROM orders WHERE user_id = 42 ORDER BY created_at DESC LIMIT 10;',
