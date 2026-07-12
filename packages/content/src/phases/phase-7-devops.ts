@@ -268,15 +268,17 @@ export const PHASE_7_QUESTS: Quest[] = [
     questions: [
       {
         id: 'q1',
-        prompt: 'What does a Docker image contain?',
+        prompt:
+          'Your container image is 50MB but the equivalent VM image is 2GB. What does the container image leave out that makes it so much smaller?',
         options: [
-          'Just your application source code',
-          'A snapshot of a running process and its memory',
-          'Your app plus its dependencies, libraries, and OS userland — everything but the kernel',
-          'Only the operating system kernel',
+          'Your application source code',
+          'The kernel — containers share the host kernel instead of bundling a full guest OS',
+          'Your runtime dependencies (Node, pip packages)',
+          'The OS userland (shell, coreutils)',
         ],
-        correctIndex: 2,
-        explanation: 'A container image bundles app + deps + userland. It shares the host kernel, which is why it is far lighter than a VM.',
+        correctIndex: 1,
+        explanation:
+          'A container image bundles app + deps + userland but shares the host kernel; a VM bundles a whole guest OS. That is why the container is far smaller and starts in milliseconds.',
       },
       {
         id: 'q2',
@@ -292,10 +294,17 @@ export const PHASE_7_QUESTS: Quest[] = [
       },
       {
         id: 'q3',
-        prompt: 'In a Dockerfile, which directive copies your application source code into the image?',
-        options: ['FROM', 'RUN', 'COPY', 'CMD'],
-        correctIndex: 2,
-        explanation: '`COPY <src> <dest>` copies files from the build context into the image. FROM picks the base; RUN executes a build step; CMD sets the default process.',
+        prompt:
+          "A teammate's Dockerfile has `RUN cp ./app /srv/app` and it fails — `./app` is not found. What is wrong, and how do they fix it?",
+        options: [
+          '`RUN` runs inside the container where the build context does not exist — use `COPY ./app /srv/app` to bring files in from the build context',
+          'Nothing is wrong — just rerun the build',
+          'Replace `RUN` with `FROM`',
+          'Replace `RUN` with `CMD`',
+        ],
+        correctIndex: 0,
+        explanation:
+          '`RUN` executes a process *inside* the container filesystem, which has no access to your build context. `COPY <src> <dest>` is the directive that pulls files from the build context into the image. FROM picks the base image; CMD sets the default process.',
       },
       {
         id: 'q4',
@@ -366,16 +375,17 @@ export const PHASE_7_QUESTS: Quest[] = [
     questions: [
       {
         id: 'q1',
-        prompt: 'What is the smallest deployable unit in Kubernetes?',
+        prompt:
+          'You tell a junior "just deploy the container to Kubernetes" and they cannot — Kubernetes rejects a bare container. What must they wrap it in, and why?',
         options: [
-          'A container',
-          'A Pod',
-          'A Deployment',
-          'A Node',
+          'A Node — containers must be assigned to a physical machine first',
+          'A Pod — Kubernetes schedules Pods (which hold one or more containers), not raw containers; the Pod is the smallest deployable unit',
+          'A Deployment — you cannot run anything without declaring a replica count',
+          'A container is fine, they just need to retry the command',
         ],
         correctIndex: 1,
         explanation:
-          'Kubernetes does not run containers directly — it wraps them in Pods. A Pod is the smallest deployable unit and can hold one or more tightly-coupled containers.',
+          'Kubernetes does not run containers directly — it wraps them in Pods. A Pod is the smallest deployable unit and can hold one or more tightly-coupled containers that share network and storage.',
       },
       {
         id: 'q2',
@@ -603,8 +613,8 @@ export const PHASE_7_QUESTS: Quest[] = [
         options: [
           'Wait a few minutes and see if it self-resolves',
           'Roll the canary back immediately, then debug',
+          'Roll forward — push another new version on top to overwrite the bug',
           'Route 100% of traffic to the new version to get more signal',
-          'Disable monitoring so the alerts stop firing',
         ],
         correctIndex: 1,
         explanation: 'Roll back first, debug later. Every second users hit errors is real harm. `kubectl rollout undo` is faster than reading logs.',
@@ -723,16 +733,69 @@ export const PHASE_7_QUESTS: Quest[] = [
             'Wrong direction for right now. A canary stage is a great *future* improvement, but it does not stop the current bleeding. Roll back now; add the canary guardrail afterward.',
         },
       ],
+      [
+        {
+          id: 'a',
+          label:
+            'Add an automated canary rollout with SLO-based auto-rollback, so a bad build never reaches 100% of traffic again',
+          isCorrect: true,
+          feedback:
+            'Correct. Ship to a small slice first, watch error-rate/latency SLOs, and auto-roll back on breach. The bad build would have been caught at 5% instead of 100%.',
+        },
+        {
+          id: 'b',
+          label: 'Schedule all deploys for 3am so fewer users notice the errors',
+          isCorrect: false,
+          feedback:
+            'Wrong — this hides the symptom, it does not prevent the defect from shipping. Off-hours deploys also mean the on-call is alone and groggy when it breaks.',
+        },
+        {
+          id: 'c',
+          label: 'Pin every dependency forever and never bump a library again',
+          isCorrect: false,
+          feedback:
+            'Wrong. Never updating means you accumulate known CVEs and fall behind. The fix is a controlled rollout + dependency tests, not freezing.',
+        },
+        {
+          id: 'd',
+          label: 'Remove the staging environment so deploys are faster',
+          isCorrect: false,
+          feedback:
+            'Wrong — removing a pre-prod stage removes your last chance to catch the bug before users. You want *more* validation gates, not fewer.',
+        },
+      ],
     ],
   },
 
-  /* ---- 10. Capstone: Resilient deployment pipeline runtime ---- */
+  /* ---- 9b. Architecture: zero-downtime rollout runtime ---- */
+  {
+    id: 'q-7-arch-rollout',
+    type: 'architecture',
+    title: 'Design a Zero-Downtime Rollout Runtime',
+    phaseId: 'phase-7',
+    order: 10,
+    xpReward: 300,
+    brief:
+      'The payments API must keep serving while you roll out new versions. Design a runtime that stays available during a deploy at 4,000 rps, p95 under 90 ms, 99.9% availability, under $2,000/month. The lesson from the bad-deploy incident: a safe rollout needs **spare capacity** — multiple app replicas behind a load balancer so you can drain and replace one at a time without dropping users. Single points of failure are not allowed.',
+    allowedComponents: ['lb-l7-nginx', 'app-node', 'db-postgres', 'redis'],
+    requiredComponentTypes: ['loadBalancer', 'appServer', 'dbSQL'],
+    target: {
+      minRps: 4_000,
+      maxLatencyP95: 90,
+      maxCostPerMonth: 1_850,
+      minAvailability: 0.999,
+    },
+    traffic: { rps: 4_000, readRatio: 0.85 },
+    prerequisites: ['q-7-incident-deploy'],
+  },
+
+  /* ---- 11. Capstone: Resilient deployment pipeline runtime ---- */
   {
     id: 'q-7-capstone',
     type: 'architecture',
     title: 'Capstone: Resilient Production Runtime',
     phaseId: 'phase-7',
-    order: 10,
+    order: 11,
     xpReward: 500,
     brief:
       "You are now the platform lead. Design the production runtime for ScaleUp's checkout service — the path requests take at runtime — that can survive 10,000 rps with p95 under 100ms, four-9s (99.99%) availability, under $4,500/month. This is the DevOps phase: think about how you ship code safely and observe it. Front it with a load balancer, run multiple app replicas for self-healing, back it with durable SQL storage, and put a queue in front to absorb bursts so a bad deploy or a downstream hiccup does not take the whole system down.",
@@ -742,7 +805,7 @@ export const PHASE_7_QUESTS: Quest[] = [
       maxLatencyP95: 100,
       minRps: 10_000,
       minAvailability: 0.9999,
-      maxCostPerMonth: 4_500,
+      maxCostPerMonth: 2_400,
     },
     traffic: { rps: 10_000, readRatio: 0.85 },
     prerequisites: ['q-7-incident-deploy'],

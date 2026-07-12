@@ -9,7 +9,12 @@ export interface PlayerState {
   completedQuestIds: string[];
   learnedConceptIds: string[];
   architecturesDesigned: number;
-  architecturesUnder100ms: number;
+  /** p95 latency (ms) of every architecture solve — feeds the lowLatency badge. */
+  architectureLatencies: number[];
+  /** Repeatable-XP (reviews) tracking for the daily cap. day = dayIndex. */
+  dailyXp: { day: number; gained: number };
+  /** Career acts whose promotion reward (freeze refill) has already been granted. */
+  actsRewarded: string[];
   badgeIds: string[];
   streak: {
     current: number;
@@ -27,7 +32,9 @@ export const DEFAULT_PLAYER: PlayerState = {
   completedQuestIds: [],
   learnedConceptIds: [],
   architecturesDesigned: 0,
-  architecturesUnder100ms: 0,
+  architectureLatencies: [],
+  dailyXp: { day: 0, gained: 0 },
+  actsRewarded: [],
   badgeIds: [],
   streak: { current: 0, longest: 0, lastActiveDay: null, freezes: 1 },
   lastPlayedAt: null,
@@ -55,7 +62,10 @@ export const db = typeof window !== 'undefined' ? new SdGameDB() : (null as unkn
 export async function loadPlayer(): Promise<PlayerState> {
   if (!db) return DEFAULT_PLAYER;
   const existing = await db.progress.get('main');
-  return existing ?? DEFAULT_PLAYER;
+  if (!existing) return DEFAULT_PLAYER;
+  // Shallow-merge over defaults so newly-added fields (e.g. architectureLatencies)
+  // backfill gracefully for saves created before they existed.
+  return { ...DEFAULT_PLAYER, ...existing };
 }
 
 export async function savePlayer(state: PlayerState): Promise<void> {

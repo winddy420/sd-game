@@ -79,7 +79,8 @@ export default function ProfilePage() {
               progress,
               streakDays: player.streak.current,
               architecturesDesigned: player.architecturesDesigned,
-              architecturesUnderLatency: player.architecturesUnder100ms,
+              architectureLatencies: player.architectureLatencies,
+              phases: CURRICULUM.phases,
             });
             return (
               <div

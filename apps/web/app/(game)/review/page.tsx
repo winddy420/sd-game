@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CURRICULUM } from '@sd-game/content';
-import type { RecallRating } from '@sd-game/game-engine';
+import { dueCards, type RecallRating } from '@sd-game/game-engine';
 import { useGameStore } from '@/lib/store/game-store';
 import { Card, Button } from '@/components/ui/primitives';
 import { Brain, Check, Eye } from 'lucide-react';
@@ -20,10 +20,7 @@ export default function ReviewPage() {
   const cards = useGameStore((s) => s.reviewCards);
   const recordReview = useGameStore((s) => s.recordReview);
 
-  const due = useMemo(
-    () => cards.filter((c) => c.due <= Date.now()).sort((a, b) => a.due - b.due),
-    [cards],
-  );
+  const due = useMemo(() => dueCards(cards, Date.now()), [cards]);
   const [idx, setIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [reviewed, setReviewed] = useState(0);

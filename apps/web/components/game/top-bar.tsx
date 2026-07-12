@@ -55,10 +55,15 @@ export function TopBar() {
 
         <div
           className="flex items-center gap-1 rounded-lg bg-orange-500/10 px-2 py-1.5 text-sm font-semibold text-orange-400"
-          title={`${player.streak.current}-day streak (best ${player.streak.longest})`}
+          title={`${player.streak.current}-day streak (best ${player.streak.longest}) · ${player.streak.freezes} streak freeze${player.streak.freezes === 1 ? '' : 's'} available (refill at each promotion)`}
         >
           <Flame className="h-4 w-4" />
           {player.streak.current}
+          {player.streak.freezes > 0 && (
+            <span className="ml-0.5 text-sky-400" title="streak freezes">
+              🧊{player.streak.freezes}
+            </span>
+          )}
         </div>
       </div>
     </header>

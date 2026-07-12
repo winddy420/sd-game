@@ -705,7 +705,7 @@ export const PHASE_2_QUESTS: Quest[] = [
     target: {
       minRps: 2_000,
       maxLatencyP95: 150,
-      maxCostPerMonth: 2_500,
+      maxCostPerMonth: 1_500,
       minAvailability: 0.999,
     },
     traffic: { rps: 2_000, readRatio: 0.8 },
@@ -757,10 +757,11 @@ export const PHASE_2_QUESTS: Quest[] = [
         },
         {
           id: 'd',
-          label: 'Take the whole API offline until Monday so the team can investigate calmly',
+          label:
+            'Disable password resets for everyone — including legitimate users — until the attack stops',
           isCorrect: false,
           feedback:
-            'Massive overreaction. You\'d trade one bad endpoint for a full outage affecting every customer. Scope the mitigation to the affected endpoint.',
+            'Overreaction that punishes real users. You would deny a critical flow to every customer to stop one attacker. Rate-limit the abusive pattern at the gateway instead; do not turn the feature off for everyone.',
         },
       ],
     ],
@@ -790,7 +791,7 @@ export const PHASE_2_QUESTS: Quest[] = [
     target: {
       minRps: 3_000,
       maxLatencyP95: 120,
-      maxCostPerMonth: 3_500,
+      maxCostPerMonth: 1_650,
       minAvailability: 0.9995,
     },
     traffic: { rps: 3_000, readRatio: 0.9 },

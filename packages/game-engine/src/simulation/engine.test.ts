@@ -42,12 +42,14 @@ describe('simulate', () => {
     };
     const m = simulate(topology, { rps: 500, readRatio: 0.9 });
     expect(m.connected).toBe(true);
-    // latency = cdn(5) + lb(2) + app(50) + db(10) = 67 (under 70% util, no penalty)
-    expect(m.latencyP95).toBeGreaterThanOrEqual(60);
-    expect(m.latencyP95).toBeLessThanOrEqual(80);
+    // The CDN serves ~81% of reads at the edge, so p95 sits well under the raw
+    // 67ms sum of base latencies (B1: a working cache/CDN lowers latency).
+    expect(m.latencyP95).toBeGreaterThan(0);
+    expect(m.latencyP95).toBeLessThan(50);
     // cost = 200 + 100 + 150 + 500 = 950
     expect(m.costPerMonth).toBe(950);
-    // availability multiplies along the path: 0.99999*0.9999*0.999*0.999 ≈ 0.99789
+    // availability multiplies along the path (CDN is kept; cache type excluded):
+    // 0.99999*0.9999*0.999*0.999 ≈ 0.99789
     expect(m.availability).toBeGreaterThan(0.997);
     expect(m.availability).toBeLessThan(0.999);
   });
@@ -101,8 +103,82 @@ describe('simulate', () => {
     const target = { rps: 8_000, readRatio: 0.95 };
     const a = simulate(noCache, target);
     const b = simulate(withCache, target);
-    // With cache hit ratio 0.85, DB load drops; latency should be lower
+    // With cache hit ratio 0.85, DB load drops; latency should be lower (B1).
     expect(b.latencyP95).toBeLessThanOrEqual(a.latencyP95);
+  });
+});
+
+// ---- B1–B6 regressions: the model must reward correct intuitions ----
+describe('cache & CDN fidelity', () => {
+  it('a cache (inline) measurably lowers p95 latency vs no cache', () => {
+    const noCache: Topology = {
+      nodes: [n('lb', 'lb-l7-nginx'), n('app', 'app-node'), n('db', 'db-postgres')],
+      edges: [e('e1', 'lb', 'app'), e('e2', 'app', 'db')],
+    };
+    const inline: Topology = {
+      nodes: [n('lb', 'lb-l7-nginx'), n('app', 'app-node'), n('cache', 'redis'), n('db', 'db-postgres')],
+      edges: [e('e1', 'lb', 'app'), e('e2', 'app', 'cache'), e('e3', 'cache', 'db')],
+    };
+    const t = { rps: 5_000, readRatio: 0.95 };
+    expect(simulate(inline, t).latencyP95).toBeLessThan(simulate(noCache, t).latencyP95);
+  });
+
+  it('a cache wired as a side-branch (cache-aside) works just as well as inline (B2)', () => {
+    const inline: Topology = {
+      nodes: [n('app', 'app-node'), n('cache', 'redis'), n('db', 'db-postgres')],
+      edges: [e('e1', 'app', 'cache'), e('e2', 'cache', 'db')],
+    };
+    const aside: Topology = {
+      nodes: [n('app', 'app-node'), n('cache', 'redis'), n('db', 'db-postgres')],
+      edges: [e('e1', 'app', 'cache'), e('e2', 'app', 'db')],
+    };
+    const t = { rps: 5_000, readRatio: 0.95 };
+    expect(simulate(aside, t).latencyP95).toBeCloseTo(simulate(inline, t).latencyP95, 0);
+  });
+
+  it('adding a cache does NOT lower availability (B3) — it is non-critical', () => {
+    const base: Topology = {
+      nodes: [n('lb', 'lb-l7-nginx'), n('app', 'app-node'), n('db', 'db-postgres')],
+      edges: [e('e1', 'lb', 'app'), e('e2', 'app', 'db')],
+    };
+    const withCache: Topology = {
+      nodes: [n('lb', 'lb-l7-nginx'), n('app', 'app-node'), n('cache', 'redis'), n('db', 'db-postgres')],
+      edges: [e('e1', 'lb', 'app'), e('e2', 'app', 'cache'), e('e3', 'cache', 'db')],
+    };
+    const t = { rps: 1_000, readRatio: 0.9 };
+    expect(simulate(withCache, t).availability).toBeGreaterThanOrEqual(simulate(base, t).availability);
+  });
+
+  it('a cache removes the DB as the throughput bottleneck (B4)', () => {
+    // 10k rps, 97% reads. With 3 app replicas (15k cap) the DB is the bottleneck
+    // at 10k. Adding a 0.85 cache lifts DB headroom so throughput follows the app.
+    const noCache: Topology = {
+      nodes: [n('app', 'app-node', 3), n('db', 'db-postgres')],
+      edges: [e('e1', 'app', 'db')],
+    };
+    const withCache: Topology = {
+      nodes: [n('app', 'app-node', 3), n('cache', 'redis'), n('db', 'db-postgres')],
+      edges: [e('e1', 'app', 'cache'), e('e2', 'cache', 'db')],
+    };
+    const t = { rps: 10_000, readRatio: 0.97 };
+    expect(simulate(noCache, t).maxThroughput).toBeLessThanOrEqual(10_000);
+    expect(simulate(withCache, t).maxThroughput).toBeGreaterThan(simulate(noCache, t).maxThroughput);
+  });
+
+  it('a CDN offloads the app tier (B6) — fewer app replicas needed', () => {
+    const t = { rps: 25_000, readRatio: 0.98 };
+    const noCdn: Topology = {
+      nodes: [n('lb', 'lb-l7-nginx'), n('app', 'app-node', 1), n('db', 'db-mongo')],
+      edges: [e('e1', 'lb', 'app'), e('e2', 'app', 'db')],
+    };
+    const withCdn: Topology = {
+      nodes: [n('cdn', 'cdn-cloudflare'), n('lb', 'lb-l7-nginx'), n('app', 'app-node', 1), n('db', 'db-mongo')],
+      edges: [e('e1', 'cdn', 'lb'), e('e2', 'lb', 'app'), e('e3', 'app', 'db')],
+    };
+    // Without the CDN, one 5k-capacity app drowns under ~24.5k rps of reads.
+    expect(simulate(noCdn, t).maxThroughput).toBeLessThan(25_000);
+    // The CDN absorbs 90% of reads, so the same single app now sustains the load.
+    expect(simulate(withCdn, t).maxThroughput).toBeGreaterThanOrEqual(25_000);
   });
 });
 

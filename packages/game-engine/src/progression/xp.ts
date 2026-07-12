@@ -19,11 +19,15 @@ export function xpForLevel(level: number): number {
   return total;
 }
 
-/** XP needed to advance FROM `level` to `level + 1`. */
+/** XP needed to advance FROM `level` to `level + 1`.
+
+ * Tuned so the full curriculum (~13,000 XP) carries a completionist to Staff
+ * (Lv 41) with headroom — see the `staff level is reachable` regression test.
+ * Earlier curve was ~4× too steep: 100%-completion topped out at Lv 21 (Mid). */
 export function levelCost(level: number): number {
-  if (level < 10) return 100 + (level - 1) * 40; // 100 → ~460
-  if (level < 30) return 500 + (level - 10) * 75; // 500 → ~2000
-  return 2000 + (level - 30) * 100; // 2000 → ~5000
+  if (level < 10) return 50 + (level - 1) * 12; // 50 → ~146
+  if (level < 30) return 160 + (level - 10) * 14; // 160 → ~426
+  return 440 + (level - 30) * 16; // 440 → ~600
 }
 
 /** Given total XP, return the level + progress into the next level. */
@@ -62,7 +66,8 @@ export function actForLevel(level: number): CareerAct {
   return 'Staff';
 }
 
-/** Daily XP cap to prevent burnout / grinding (design doc §4.1). */
+/** Daily XP cap to prevent burnout / grinding (design doc §4.1). Enforced in the
+ *  web store on repeatable XP sources (reviews, grade bonuses). */
 export const DAILY_XP_CAP = 1500;
 
 /** Title shown to the player. */

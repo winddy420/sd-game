@@ -4,7 +4,9 @@
 >
 > ข้อมูลทั้งหมดสกัดจาก source จริงใน `packages/content/src/phases/` (commit `f862885`) — ไม่ invent
 >
-> **ภาพรวม**: 8 phases · 35 concepts · 67 quests (4 ประเภท: lesson / architecture / incident / command) · Career RPG Junior → Staff Architect · บริษัทโต 10 → 10M users
+> **ภาพรวม**: 8 phases · 37 concepts · 69 quests (4 ประเภท: lesson / architecture / incident / command) · Career RPG Junior → Staff Architect · บริษัทโต 10 → 10M users
+>
+> **เนื้อหาใหม่ (M3/M4)**: Phase 4 เพิ่ม `c-4-estimation` (back-of-envelope) + `c-4-cost` (cost modeling) พร้อม lesson · Phase 3 เพิ่ม `q-3-arch-writes` (NoSQL write-throughput, Cassandra ชนะบน write-heavy) · Phase 7 เพิ่ม arch quest ที่ 2 `q-7-arch-rollout` + แก้ recall quiz Docker/k8s เป็น scenario · incident P6/P7/P8 เป็น multi-step · comic distractors แก้เป็น plausible-wrong · XP curve rescale ให้ Staff (Lv 41) reachable · cost caps ทั้ง 16 รัดกุดขึ้น (min×1.3) · `q-8-arch-multiregion` ลดจาก 5-nines เป็น 4-nines (cdn บน path ทำ 5-nines เป็นไปไม่ได้)
 
 ---
 
@@ -442,12 +444,12 @@
 ## เฉลย Lesson Quizzes
 
 ### q-8-lesson-multiregion
-1. ✅ **RPO=30s, RTO≈4m30s** — RPO=replication lag; RTO=DNS failover+drift
+1. ✅ **RPO=30s, RTO≈4 min** — RPO=replication lag (data lost); RTO=DNS failover (time to restore). สองแกนแยกกัน ไม่บวกเข้าด้วยกัน
 2. ✅ **Region-pinned data + global routing layer** (GDPR)
 3. ✅ **Zero failover แต่ conflict resolution** (active-active)
 4. ✅ **Cross-region RTT 80-200ms/write** — ฆ่า latency
 
-⚠️ **reviewer note Q1**: RTO อาจ debatable — strict definition คือ "time to restore service" = 4 min DNS failover; replication lag จัดเป็น RPO ไม่ใช่ RTO. คำตอบรวม lag เข้า RTO อาจไม่ตรง textbook 100%. Expert ควรชี้
+✅ **reviewer note Q1 (แก้แล้ว)**: เดิมคำตอบรวม replication lag เข้า RTO (RTO≈4m30s) — strict definition ถือ lag เป็น RPO ไม่ใช่ RTO ปรับ option/explanation เป็น "RPO=30s, RTO≈4 min" พร้อมคำอธิบายแยกสองแกนแล้ว
 
 ### q-8-lesson-database-internals
 1. ✅ **LSM-tree** (write-heavy, MemTable+WAL+SSTables)
@@ -515,8 +517,22 @@
 ## Verification infrastructure (สำหรับ expert อ้างอิง)
 
 - `packages/game-engine/src/content.integrity.test.ts` — ตรวจทุก quiz มี correctIndex ใน range, regex คอมไพล์ได้, components มีจริง
-- `packages/game-engine/src/solvability.sweep.test.ts` — brute-force topology ผ่านให้ทุก architecture quest (15/15)
+- `packages/game-engine/src/solvability.sweep.test.ts` — brute-force topology ผ่านให้ทุก architecture quest (17/17 — รวม `q-7-arch-rollout` + `q-3-arch-writes`)
 - `packages/game-engine/src/coverage.audit.test.ts` — ทุก concept มี lesson, ไม่มี dead-end prereq, badge reachable
-- รวม **64 unit tests ผ่านทั้งหมด**
+- `packages/game-engine/src/simulation/engine.test.ts` — property tests สำหรับ model ใหม่ (cache ลด latency/ไม่ลด availability, CDN offload app, cache-aside = inline)
+- รวม **78 unit tests ผ่านทั้งหมด**
 
-*เอกสารนี้ generate จาก source commit `f862885` · 2026-07-07*
+### อัปเดต simulation model (M2, 2026-07-12)
+
+แต่เดิม simulator สอน intuition ผิดในหลายจุด (cache ไม่ลด latency, เพิ่ม cache ทำ availability ลด, required component วางลอยๆ ก็ผ่าน) ปรับใหม่ให้สอดคล้องบทเรียน:
+
+- **Cache/CDN ลด latency จริง** — p95 blend ระหว่าง miss path (full) กับ hit ที่ถูก serve ที่ cache: `p95 = missFraction × latencyFull + hitFraction × serveLatency`
+- **Cache เป็น non-critical dependency** — ไม่คูณเข้า availability (cache ล่ม → fall through DB) → เพิ่ม Redis ไม่ทำ availability ตก
+- **Cache-aside (side-branch) ใช้ได้เท่า inline** — นับ cache-like node ที่ reachable จาก entry (ทั้ง `app→cache→db` และ `app→{cache,db}`)
+- **Throughput ใช้ demand จริง** — DB capacity เทียบกับ `writes + reads×(1−aggHit)` ไม่ใช่ raw rps → cache ถอด DB ออกจาก bottleneck; CDN offload app (app เห็น `writes + reads×(1−cdnHit)`)
+- **Required component ต้อง wire จริง** — นับเฉพาะ node reachable จาก entry; queue/cache ลอยไม่ผ่าน
+- **Component ไม่ dominate กันเด็ดขาด** — `lb-l4` (ถูก/เร็วแต่ HA ต่ำ), `app-python` (ถูกแต่ capacity/latency ต่ำ), `db-postgres-replica` (avail 0.997 — solo ไม่ผ่าน HA target)
+
+เฉลย architecture ทุกตัว (ตาราง "แนวคิดเฉลย" ในแต่ละ phase) **ยัง valid เหมือนเดิม** — solver brute-force ยัง 15/15 solvable หลังปรับ model
+
+*เอกสารนี้ generate จาก source commit `f862885` · อัปเดต M1+M2 ถึง 2026-07-12*

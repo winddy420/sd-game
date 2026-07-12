@@ -280,13 +280,13 @@ export const PHASE_8_QUESTS: Quest[] = [
           'You run a system with async DB replication every 30 seconds and a DNS failover that takes 4 minutes. What are your RPO and RTO?',
         options: [
           'RPO = 0, RTO = 4 min',
-          'RPO = 30s, RTO ≈ 4 min 30s',
+          'RPO = 30s, RTO ≈ 4 min',
           'RPO = 4 min, RTO = 30s',
           'RPO = 30s, RTO = 0',
         ],
         correctIndex: 1,
         explanation:
-          'RPO = max data lost in time = the replication lag (30s). RTO = time to restore = DNS failover (4 min) + replication lag drift, conservatively ≈ 4m30s.',
+          'RPO = the most data you can lose = the replication lag (30s). RTO = the time to restore service = the DNS failover (~4 min). These are two separate axes: the lag is a data-loss (RPO) concern, while the failover duration is the recovery (RTO) concern — they are not added together.',
       },
       {
         id: 'q2',
@@ -588,7 +588,7 @@ export const PHASE_8_QUESTS: Quest[] = [
     order: 6,
     xpReward: 300,
     brief:
-      'Design a multi-region backend for a global notifications service: 40,000 rps at 95% reads, p95 latency under 80 ms, and 99.999% availability (five 9s), within $8,000/month. Serve users from edge caches in every region; replicate writes through a queue; choose a database that scales horizontally across regions.',
+      'Design a multi-region backend for a global notifications service: 40,000 rps at 95% reads, p95 latency under 80 ms, and 99.99% availability (four 9s — a CDN on the path caps you just under five, so design the origin path for four), within $8,000/month. Serve users from edge caches in every region; replicate writes through a queue; choose a database that scales horizontally across regions.',
     allowedComponents: [
       'cdn-cloudflare',
       'dns-route53',
@@ -602,8 +602,8 @@ export const PHASE_8_QUESTS: Quest[] = [
     target: {
       maxLatencyP95: 80,
       minRps: 40_000,
-      minAvailability: 0.99999,
-      maxCostPerMonth: 8_000,
+      minAvailability: 0.9999,
+      maxCostPerMonth: 2_350,
     },
     traffic: { rps: 40_000, readRatio: 0.95 },
     prerequisites: ['q-8-command-failover'],
@@ -661,6 +661,40 @@ export const PHASE_8_QUESTS: Quest[] = [
             'Wrong — you would be discarding the 3-node majority (and its newer committed entries), effectively choosing the losing side. Quorum is about which side CAN commit safely, not about redefining the cluster to fit the smaller side.',
         },
       ],
+      [
+        {
+          id: 'a',
+          label:
+            'Run an odd cluster size, spread nodes across zones/regions, and let clients fail over to the majority so a partition never splits quorum',
+          isCorrect: true,
+          feedback:
+            'Correct. N=5 tolerates 2 failures; an odd size wastes no quorum; spreading nodes across zones means a single-zone partition leaves a majority intact. Client routing to the healthy majority makes the failover automatic.',
+        },
+        {
+          id: 'b',
+          label:
+            'Run an even number of nodes (e.g. 6) so there is more capacity to survive partitions',
+          isCorrect: false,
+          feedback:
+            'Wrong — an even cluster tolerates the *same* number of failures as the odd size below it (6 tolerates 2, just like 5) while costing more. Odd sizes are strictly more efficient for quorum systems.',
+        },
+        {
+          id: 'c',
+          label:
+            'Pin all nodes in a single zone so a partition can never divide them',
+          isCorrect: false,
+          feedback:
+            'Wrong — co-locating all nodes turns a single-zone outage into total cluster loss. Spreading across zones/regions is what lets the majority survive a partition in the first place.',
+        },
+        {
+          id: 'd',
+          label:
+            'Disable quorum checks so every node accepts writes independently',
+          isCorrect: false,
+          feedback:
+            'Wrong — this is permanent split-brain by design. Quorum is the mechanism that keeps a distributed system consistent; disabling it guarantees divergent logs and data loss.',
+        },
+      ],
     ],
   },
 
@@ -693,7 +727,7 @@ export const PHASE_8_QUESTS: Quest[] = [
       maxLatencyP95: 120,
       minRps: 50_000,
       minAvailability: 0.9999,
-      maxCostPerMonth: 10_000,
+      maxCostPerMonth: 2_000,
     },
     traffic: { rps: 50_000, readRatio: 0.97 },
     prerequisites: ['q-8-incident-splitbrain'],

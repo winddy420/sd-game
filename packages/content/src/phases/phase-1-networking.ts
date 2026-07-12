@@ -461,7 +461,7 @@ export const PHASE_1_QUESTS: Quest[] = [
     target: {
       minRps: 1_000,
       maxLatencyP95: 120,
-      maxCostPerMonth: 2_000,
+      maxCostPerMonth: 1_850,
       minAvailability: 0.999,
     },
     traffic: { rps: 1_000, readRatio: 0.9 },
@@ -529,7 +529,7 @@ export const PHASE_1_QUESTS: Quest[] = [
     target: {
       minRps: 5_000,
       maxLatencyP95: 80,
-      maxCostPerMonth: 3_000,
+      maxCostPerMonth: 2_000,
       minAvailability: 0.9995,
     },
     traffic: { rps: 5_000, readRatio: 0.95 },

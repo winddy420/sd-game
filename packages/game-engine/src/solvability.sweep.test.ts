@@ -26,7 +26,6 @@ describe('architecture quest solvability', () => {
       const apps = allowed.filter((c) => c.type === 'appServer');
       const caches = allowed.filter((c) => c.type === 'cache');
       const dbs = [...allowed.filter((c) => c.type === 'dbSQL'), ...allowed.filter((c) => c.type === 'dbNoSQL')];
-      const queues = allowed.filter((c) => c.type === 'queue');
 
       const required = quest.requiredComponentTypes ?? [];
 
@@ -56,17 +55,19 @@ describe('architecture quest solvability', () => {
                     if (cache) push('cache', cache, cr);
                     push('db', db, dr);
 
-                    // Ensure every required type is present (place standalone if absent).
+                    // Wire every required type not already on the read path off the
+                    // app (e.g. app → queue). Required nodes must be reachable from
+                    // an entry — a floating orphan no longer counts (B5).
                     const present = new Set(nodes.map((n) => COMPONENT_TYPE(n.componentId)));
                     for (const t of required) {
                       if (!present.has(t)) {
                         const def = pick(t);
-                        if (def) push(`req-${t}`, def, 1, false);
+                        if (def) {
+                          nodes.push({ id: `req-${t}`, componentId: def.id, replicas: 1 });
+                          edges.push({ id: `e${nodes.length}`, source: 'app', target: `req-${t}` });
+                          present.add(t);
+                        }
                       }
-                    }
-                    // Queues aren't on the read path; add one if a queue exists & isn't present.
-                    if (queues.length && !present.has('queue')) {
-                      push('q', queues[0]!, 1, false);
                     }
 
                     const res = gradeArchitecture(quest, { nodes, edges });

@@ -16,6 +16,7 @@ import {
   newlyEarned,
   newCard,
   review as reviewCard,
+  DAILY_XP_CAP,
   type Progress,
   type ArchitectureResult,
   type ReviewCard,
@@ -39,6 +40,11 @@ interface GameState {
   lastArchResult: ArchitectureResult | null;
   /** XP gained on the most recent action (for the toast animation). */
   lastXpGain: number | null;
+  /** A non-XP event (badge/act promotion/freeze) to surface as a toast. */
+  lastNotice: { kind: 'badge' | 'act' | 'freeze'; text: string } | null;
+  /** Monotonic counter bumped on every XP/action — lets the toaster retrigger
+   *  even when the XP amount is identical across consecutive actions. */
+  lastActionSeq: number;
 
   hydrate: () => Promise<void>;
 
@@ -63,22 +69,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   reviewCards: [],
   lastArchResult: null,
   lastXpGain: null,
+  lastNotice: null,
+  lastActionSeq: 0,
 
   async hydrate() {
     if (get().hydrated) return;
     const [player, reviewCards] = await Promise.all([loadPlayer(), loadReviewCards()]);
 
-    // Register today's activity for the streak (idempotent within a day).
-    const now = Date.now();
-    const today = dayIndex(now);
-    if (player.streak.lastActiveDay !== today) {
-      const { state: streak } = registerActivity(player.streak, now);
-      player.streak = streak;
-      player.lastPlayedAt = now;
-    }
-
     set({ player, reviewCards, hydrated: true, lastXpGain: null });
-    void savePlayer(player);
   },
 
   async completeQuest(quest) {
@@ -105,12 +103,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
     }
 
-    player.totalXp += quest.xpReward;
+    const { gained, promotedTo } = applyXp(player, quest.xpReward);
 
-    awardBadges(player, get);
-    set({ player, lastXpGain: quest.xpReward });
+    touchStreak(player);
+    const earned = awardBadges(player, get);
+    set({
+      player,
+      lastXpGain: gained,
+      lastNotice: noticeFor(earned, promotedTo),
+      lastActionSeq: get().lastActionSeq + 1,
+    });
     void savePlayer(player);
-    return quest.xpReward;
+    return gained;
   },
 
   async submitArchitecture(quest, topology) {
@@ -126,14 +130,27 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (result.passed) {
       const alreadyDone = player.completedQuestIds.includes(quest.id);
       player.architecturesDesigned += 1;
-      if (result.metrics.latencyP95 < 100) player.architecturesUnder100ms += 1;
+      player.architectureLatencies = [...player.architectureLatencies, result.metrics.latencyP95];
+      let gained = 0;
+      let promotedTo: string | null = null;
       if (!alreadyDone) {
         player.completedQuestIds = [...player.completedQuestIds, quest.id];
-        player.totalXp += quest.xpReward;
+        // Higher grades pay more — rewards optimizing past the pass bar (A5).
+        const r = applyXp(player, Math.round(quest.xpReward * GRADE_XP[result.grade]));
+        gained = r.gained;
+        promotedTo = r.promotedTo;
       }
-      awardBadges(player, get);
+      const earned = awardBadges(player, get);
+      set({
+        player,
+        lastArchResult: result,
+        lastXpGain: gained,
+        lastNotice: noticeFor(earned, promotedTo),
+        lastActionSeq: get().lastActionSeq + 1,
+      });
+    } else {
+      set({ player, lastArchResult: result, lastXpGain: 0, lastNotice: null });
     }
-    set({ player, lastArchResult: result, lastXpGain: result.passed ? quest.xpReward : 0 });
     void savePlayer(player);
     return result;
   },
@@ -153,17 +170,81 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   async recordReview(conceptId, rating) {
     const now = Date.now();
+    const player = { ...get().player };
     const existing = get().reviewCards.find((c) => c.conceptId === conceptId);
     const card: ReviewCard = existing
       ? reviewCard(existing, rating, now)
       : reviewCard(newCard(conceptId, now), rating, now);
     const cards = [...get().reviewCards.filter((c) => c.conceptId !== conceptId), card];
-    set({ reviewCards: cards });
+    // A review is a meaningful learning action — it counts toward the streak and
+    // pays a little repeatable XP (capped per day) so the daily loop has teeth.
+    touchStreak(player);
+    const { gained, promotedTo } = applyXp(player, REVIEW_XP, { repeatable: true });
+    const earned = awardBadges(player, get);
+    set({
+      player,
+      reviewCards: cards,
+      lastXpGain: gained,
+      lastNotice: noticeFor(earned, promotedTo),
+      lastActionSeq: get().lastActionSeq + 1,
+    });
+    void savePlayer(player);
     void saveReviewCard(card);
   },
 }));
 
-/** Award any newly-earned badges to the player. Mutates the passed state. */
+/** XP per spaced-repetition review (repeatable, daily-capped). */
+const REVIEW_XP = 15;
+/** Architecture grade → XP multiplier on first completion (A5). */
+const GRADE_XP: Record<ArchitectureResult['grade'], number> = {
+  S: 1.5,
+  A: 1.3,
+  B: 1.15,
+  C: 1.0,
+  F: 0,
+};
+
+/** Add XP to the player, enforcing the daily cap on repeatable sources and
+ *  refilling a streak freeze at each career-act promotion (A4 + A7). Returns
+ *  the amount granted and the act promoted to (if any) this call. */
+function applyXp(
+  player: PlayerState,
+  amount: number,
+  opts: { repeatable?: boolean } = {},
+): { gained: number; promotedTo: string | null } {
+  let grant = Math.max(0, amount);
+  if (opts.repeatable) {
+    const today = dayIndex(Date.now());
+    if (player.dailyXp.day !== today) player.dailyXp = { day: today, gained: 0 };
+    const remaining = Math.max(0, DAILY_XP_CAP - player.dailyXp.gained);
+    grant = Math.min(grant, remaining);
+    player.dailyXp = { ...player.dailyXp, gained: player.dailyXp.gained + grant };
+  }
+  if (grant <= 0) return { gained: 0, promotedTo: null };
+
+  const prevAct = actForLevel(levelFromXp(player.totalXp).level);
+  player.totalXp += grant;
+  const nextAct = actForLevel(levelFromXp(player.totalXp).level);
+  let promotedTo: string | null = null;
+  if (nextAct !== prevAct && nextAct !== 'Junior' && !player.actsRewarded.includes(nextAct)) {
+    player.actsRewarded = [...player.actsRewarded, nextAct];
+    player.streak = { ...player.streak, freezes: Math.min(3, player.streak.freezes + 1) };
+    promotedTo = nextAct;
+  }
+  return { gained: grant, promotedTo };
+}
+
+/** Count a meaningful action (quest/review) toward the daily streak. Idempotent
+ *  within a day. Mutates the passed player state. */
+function touchStreak(player: PlayerState) {
+  const now = Date.now();
+  const { state: streak } = registerActivity(player.streak, now);
+  player.streak = streak;
+  player.lastPlayedAt = now;
+}
+
+/** Award any newly-earned badges to the player. Mutates state; returns the
+ *  newly-earned badges so the caller can surface a toast. */
 function awardBadges(player: PlayerState, get: () => GameState) {
   const progress: Progress = {
     completedQuestIds: player.completedQuestIds,
@@ -175,13 +256,32 @@ function awardBadges(player: PlayerState, get: () => GameState) {
       progress,
       streakDays: player.streak.current,
       architecturesDesigned: player.architecturesDesigned,
-      architecturesUnderLatency: player.architecturesUnder100ms,
+      architectureLatencies: player.architectureLatencies,
+      phases: CURRICULUM.phases,
     },
     player.badgeIds,
   );
   if (earned.length) {
     player.badgeIds = [...player.badgeIds, ...earned.map((b) => b.id)];
   }
+  return earned;
+}
+
+/** Build a toast notice: a newly-earned badge wins, else an act promotion that
+ *  granted a freeze. Returns null when there is nothing worth surfacing. */
+function noticeFor(
+  earned: ReturnType<typeof awardBadges>,
+  promotedTo: string | null,
+): { kind: 'badge' | 'freeze'; text: string } | null {
+  if (earned.length) {
+    const b = earned[0]!;
+    return { kind: 'badge', text: `${b.icon} Badge unlocked: ${b.name}` };
+  }
+  if (promotedTo) {
+    const title = promotedTo === 'Staff' ? 'Staff Architect' : `${promotedTo} Engineer`;
+    return { kind: 'freeze', text: `Promoted to ${title}! +1 streak freeze 🧊` };
+  }
+  return null;
 }
 
 /** Selector helpers re-exported for convenience.

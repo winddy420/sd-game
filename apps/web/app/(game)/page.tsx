@@ -7,6 +7,7 @@ import {
   isQuestUnlocked,
   levelFromXp,
   careerTitle,
+  dueCards,
 } from '@sd-game/game-engine';
 import { useGameStore } from '@/lib/store/game-store';
 import { Card, Button, Badge } from '@/components/ui/primitives';
@@ -26,7 +27,7 @@ export default function HomePage() {
   const title = careerTitle(level);
   const available = availableQuests(CURRICULUM, progress).sort((a, b) => a.order - b.order);
   const next = available[0];
-  const dueNow = cards.filter((c) => c.due <= Date.now());
+  const dueNow = dueCards(cards, Date.now());
 
   const completedCount = player.completedQuestIds.length;
   const totalCount = CURRICULUM.quests.length;

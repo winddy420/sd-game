@@ -29,6 +29,18 @@ export function IncidentQuestView({
     return stepChoices.find((c) => c.id === id)?.isCorrect ?? false;
   });
 
+  // Multi-step incidents walk diagnose → mitigate → prevent. Single-step
+  // incidents keep the classic "root cause" framing.
+  const last = quest.steps.length - 1;
+  const stepHeading =
+    quest.steps.length === 1
+      ? 'What is the root cause?'
+      : stepIdx === 0
+        ? 'Step 1 — What is the root cause?'
+        : stepIdx === last
+          ? `Step ${stepIdx + 1} — How do you prevent a recurrence?`
+          : `Step ${stepIdx + 1} — What is your immediate mitigation?`;
+
   function pick(id: string) {
     if (submitted) return;
     setChoices((prev) => {
@@ -71,7 +83,7 @@ export function IncidentQuestView({
         <div className="mb-1 text-xs uppercase tracking-wide text-gray-400">
           Diagnosis · Step {stepIdx + 1} of {quest.steps.length}
         </div>
-        <h2 className="mb-3 text-lg font-bold">What is the root cause?</h2>
+        <h2 className="mb-3 text-lg font-bold">{stepHeading}</h2>
         <div className="grid gap-2">
           {step.map((choice) => {
             const isChosen = chosen === choice.id;

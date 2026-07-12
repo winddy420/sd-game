@@ -22,7 +22,7 @@ import type {
   Topology,
 } from '@sd-game/content';
 import { COMPONENT_BY_ID } from '@sd-game/content';
-import { simulate } from '../simulation/engine';
+import { simulate, wiredComponentTypes } from '../simulation/engine';
 
 /* ----------------------------- Lesson ----------------------------- */
 
@@ -112,12 +112,9 @@ export function gradeArchitecture(
   const metrics = simulate(topology, quest.traffic);
   const target = quest.target;
 
-  // Structural validity
-  const presentTypes = new Set<ComponentType>();
-  for (const node of topology.nodes) {
-    const def = COMPONENT_BY_ID[node.componentId];
-    if (def) presentTypes.add(def.type);
-  }
+  // Structural validity: required types must be present AND wired into the flow
+  // (reachable from an entry) — a floating, unwired node doesn't count (B5).
+  const presentTypes = wiredComponentTypes(topology);
   const required = quest.requiredComponentTypes ?? [];
   const missingTypes = required.filter((t) => !presentTypes.has(t));
   const hasRequiredComponents = missingTypes.length === 0;
@@ -146,6 +143,7 @@ export function gradeArchitecture(
     targetChecks,
     missingTypes,
     connected: metrics.connected,
+    bottleneckNames: bottleneckNames(topology, metrics.bottlenecks),
   });
 
   return {
@@ -181,8 +179,9 @@ function buildFeedback(args: {
   targetChecks: ArchitectureResult['targetChecks'];
   missingTypes: ComponentType[];
   connected: boolean;
+  bottleneckNames: string[];
 }): string[] {
-  const { target, metrics, targetChecks, missingTypes, connected } = args;
+  const { target, metrics, targetChecks, missingTypes, connected, bottleneckNames } = args;
   const out: string[] = [];
 
   if (!connected) {
@@ -193,8 +192,9 @@ function buildFeedback(args: {
     out.push(`🧩 Required component missing: ${type}. Add one to the design.`);
   }
   if (!targetChecks.throughput) {
+    const where = bottleneckNames.length ? ` (bottleneck: ${bottleneckNames.join(', ')})` : '';
     out.push(
-      `📈 Throughput ${metrics.maxThroughput.toLocaleString()} rps is below the ${target.minRps?.toLocaleString()} rps target. Scale out the bottleneck.`,
+      `📈 Throughput ${metrics.maxThroughput.toLocaleString()} rps is below the ${target.minRps?.toLocaleString()} rps target. Scale out the bottleneck${where}.`,
     );
   }
   if (!targetChecks.latency) {
@@ -216,6 +216,18 @@ function buildFeedback(args: {
     out.push('✅ All targets met. Excellent design — the CTO approves.');
   }
   return out;
+}
+
+/** Human-readable component names for the bottleneck node ids (for feedback). */
+function bottleneckNames(topology: Topology, ids: string[]): string[] {
+  const byId = new Map(topology.nodes.map((nd) => [nd.id, nd.componentId]));
+  const names: string[] = [];
+  for (const id of ids) {
+    const cid = byId.get(id);
+    const def = cid ? COMPONENT_BY_ID[cid] : undefined;
+    if (def) names.push(def.name);
+  }
+  return names;
 }
 
 /* ----------------------------- Dispatcher ----------------------------- */

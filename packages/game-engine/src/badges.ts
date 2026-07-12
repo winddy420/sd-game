@@ -2,15 +2,17 @@
  * Badge predicates — evaluate a Badge.predicate against player progress.
  */
 
-import type { Badge } from '@sd-game/content';
+import type { Badge, Phase } from '@sd-game/content';
 import type { Progress } from './progression/skill-tree';
 
 export interface BadgeProgress {
   progress: Progress;
   streakDays: number;
   architecturesDesigned: number;
-  /** Best (lowest) latency across all the player's architecture solves. */
-  architecturesUnderLatency: number; // count of solves below the latency bar
+  /** p95 latency (ms) of every architecture solve — evaluated per-badge. */
+  architectureLatencies: number[];
+  /** Curriculum phases, so phaseComplete can resolve capstones. */
+  phases: Phase[];
 }
 
 export function hasBadge(badge: Badge, ctx: BadgeProgress): boolean {
@@ -22,12 +24,19 @@ export function hasBadge(badge: Badge, ctx: BadgeProgress): boolean {
       return ctx.progress.completedQuestIds.length >= predicate.count;
     case 'architecturesDesigned':
       return ctx.architecturesDesigned >= predicate.count;
-    case 'phaseComplete':
-      // Determined elsewhere by capstone completion; we approximate by checking
-      // the capstone id is present. Full phase check lives in skill-tree.
-      return ctx.progress.completedQuestIds.some((id) => id.includes(predicate.phaseId));
+    case 'phaseComplete': {
+      // A phase is complete when its capstone quest is done. (Quest ids are
+      // `q-N-...`, NOT `phase-N`, so a substring match on phaseId is always
+      // false — resolve via the phase's capstoneQuestId instead.)
+      const phase = ctx.phases.find((p) => p.id === predicate.phaseId);
+      if (!phase) return false;
+      return ctx.progress.completedQuestIds.includes(phase.capstoneQuestId);
+    }
     case 'lowLatency':
-      return ctx.architecturesUnderLatency >= predicate.count;
+      return (
+        ctx.architectureLatencies.filter((l) => l <= predicate.maxLatency).length >=
+        predicate.count
+      );
     default:
       return false;
   }

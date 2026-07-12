@@ -60,11 +60,12 @@ export const COMPONENTS: ComponentDef[] = [
     icon: '🔀',
     category: 'routing',
     baseLatency: 1,
-    capacity: 100_000,
+    capacity: 40_000,
     costPerMonth: 80,
-    availability: 0.9999,
-    failureRate: 0.0001,
-    description: 'Fast connection-level load balancing. Cheaper, less smart than L7.',
+    availability: 0.9997,
+    failureRate: 0.0003,
+    description:
+      'Fast connection-level load balancing. Cheaper and lower-latency than L7, but lower capacity and less redundant — pick L7 when you need high availability or smart routing.',
   },
   {
     id: 'gateway-api',
@@ -100,12 +101,13 @@ export const COMPONENTS: ComponentDef[] = [
     name: 'App Server (Python)',
     icon: '🐍',
     category: 'compute',
-    baseLatency: 60,
-    capacity: 4_000,
-    costPerMonth: 140,
+    baseLatency: 65,
+    capacity: 3_500,
+    costPerMonth: 100,
     availability: 0.999,
     failureRate: 0.001,
-    description: 'Application server. Slower per-request but great for data work.',
+    description:
+      'Application server. Cheaper per instance than Node, but slower and lower-capacity — a budget pick that needs more replicas for the same throughput.',
   },
 
   /* ---- Data ---- */
@@ -131,9 +133,10 @@ export const COMPONENTS: ComponentDef[] = [
     baseLatency: 12,
     capacity: 15_000,
     costPerMonth: 400,
-    availability: 0.999,
-    failureRate: 0.002,
-    description: 'Offloads reads from the primary. Improves read throughput & resilience.',
+    availability: 0.997,
+    failureRate: 0.003,
+    description:
+      'Offloads reads from the primary for extra read throughput. A replica is NOT a source of truth — on its own it is less available than a primary, so pair it with a Postgres primary for high-availability targets.',
   },
   {
     id: 'db-mongo',

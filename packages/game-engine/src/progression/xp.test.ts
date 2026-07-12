@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { CURRICULUM } from '@sd-game/content';
 import {
   levelCost,
   xpForLevel,
@@ -9,6 +10,14 @@ import {
 } from './xp';
 
 describe('XP curve', () => {
+  it('the full curriculum carries a player to Staff (regression: A1)', () => {
+    // The whole game's XP must be enough to reach Staff (Lv 41). The old curve
+    // was so steep that 100%-completion topped out at Lv 21 (Mid) — leaving the
+    // advertised "become a Staff Architect" endgame unreachable.
+    const totalXp = CURRICULUM.quests.reduce((sum, q) => sum + q.xpReward, 0);
+    expect(totalXp).toBeGreaterThanOrEqual(xpForLevel(41));
+  });
+
   it('level 1 costs nothing to reach', () => {
     expect(xpForLevel(1)).toBe(0);
   });

@@ -158,6 +158,63 @@ Three things improve at once when the hit ratio climbs:
 **Everything cacheable should be on the CDN.** Reserve origin traffic for things that are truly dynamic or per-user. Your origin should mostly be serving **cache misses**, not all your traffic.
 `,
   },
+  {
+    id: 'c-4-estimation',
+    title: 'Capacity Estimation (Back-of-Envelope)',
+    summary:
+      'Turn users and reads/writes into rps, storage, and replica counts — the arithmetic behind every design target.',
+    phaseId: 'phase-4',
+    body: `# Capacity Estimation (Back-of-Envelope)
+
+Before you place a single component, you should be able to **estimate** the load. The point isn't precision — it's catching orders-of-magnitude mistakes (".5 rps" vs "50,000 rps") before you design.
+
+## The core conversions
+- **DAU → QPS**: daily active users × actions-per-user × read-fraction, spread over a busy-hour. A rough rule: peak QPS ≈ DAU × actions / 50,000 (most of the day's traffic lands in ~2-4 peak hours).
+- **Peak factor**: design for **2-5× average**. Black Friday / viral spikes can be 10×+. Average capacity = death by the peak.
+- **Read vs write ratio**: drives cache/replica strategy. 95% reads = cache everything; 50/50 = focus on write scaling.
+
+## Storage
+- **Per-day writes** = write-QPS × 86,400 × bytes-per-row.
+- **Retention** matters: 30 days of logs at 1 KB/row vs 5 years are 60× apart. Always state the retention window.
+- Rule of thumb: keep a **3-6 month hot set** in fast storage; archive the rest.
+
+## Replica / instance math
+- **App instances** = ceil(peak-rps / per-instance-capacity). Per-instance capacity for a typical app server is ~5,000 rps — so 25,000 rps ≈ 5 instances (add 1-2 for headroom/failover).
+- **DB replicas** scale reads; the primary handles writes. Read replicas = ceil(read-rps / replica-capacity).
+- Always leave **~30% headroom** — a node at 100% utilization is one traffic blip away from falling over.
+
+> ⚠️ **Rule of thumb**: estimate before you design, then design to the **peak** with headroom — not the average. A system sized for average traffic fails on its first busy day.
+`,
+  },
+  {
+    id: 'c-4-cost',
+    title: 'Cost Modeling',
+    summary:
+      'What actually drives your cloud bill — instances, egress, storage tiers — and how to reason about the budget.',
+    phaseId: 'phase-4',
+    prerequisites: ['c-4-estimation'],
+    body: `# Cost Modeling
+
+A design that meets every SLO but costs 10× the budget is a failed design. Cost is a first-class target, next to latency and availability.
+
+## What drives cost
+- **Compute (instance-hours)**: the biggest line for most services. More replicas = more $, linearly. An over-scaled fleet is the #1 waste — right-size to peak + headroom, not "just in case".
+- **Egress (data out)**: cloud providers charge for traffic *leaving* their network. A CDN cuts this dramatically by serving users from edge POPs instead of your origin.
+- **Storage**: billed by GB-month. Hot/SSD storage is ~5-10× cold/archive tiers. Move old data to cheaper tiers.
+- **Managed-service premium**: RDS/Aurora, managed Kafka, etc. cost more than self-hosted but save ops time. The trade is money vs headcount.
+- **Requests / IOPS**: some services (S3, DynamoDB, Lambda) bill per request, not per hour. A chatty app can dwarf the base cost.
+
+## Reading the component catalog
+Each component lists a \`costPerMonth\` per instance (replica). Total monthly cost = Σ (component.costPerMonth × replicas) over every node you place. In this game, **you pay for what you deploy** — every node on the canvas adds to the bill, so an idle "just in case" replica is pure waste.
+
+## Cost vs the other SLOs
+- **Cost vs availability**: every "9" roughly doubles cost (redundancy). Four 9s (99.99%) needs multi-zone; five 9s (99.999%) needs multi-region. Don't buy nines you don't need.
+- **Cost vs latency**: a CDN/cache costs money but *saves* origin compute — often net cheaper while faster.
+- **Cost vs throughput**: scaling out is linear in cost; pick the cheapest component that meets per-instance capacity.
+
+> ⚠️ **Rule of thumb**: the cheapest design that meets all SLOs wins. Remove nodes that aren't pulling their weight, and never pay for a "9" the business didn't ask for.
+`,
+  },
 ];
 
 export const PHASE_4_QUESTS: Quest[] = [
@@ -413,13 +470,128 @@ export const PHASE_4_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: capacity estimation ---- */
+  {
+    id: 'q-4-lesson-estimation',
+    type: 'lesson',
+    title: 'Capacity Estimation',
+    phaseId: 'phase-4',
+    order: 5,
+    xpReward: 100,
+    conceptId: 'c-4-estimation',
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'A service has 1,000,000 DAU who each take ~5 actions. Roughly what peak QPS should you design for? (peak ≈ daily-actions / 50,000)',
+        options: ['~100 QPS', '~10,000 QPS', '~1,000,000 QPS', '~5 QPS'],
+        correctIndex: 1,
+        explanation:
+          '1M DAU × 5 actions = 5M actions/day. Spread over the ~2-4 busy hours, peak ≈ 5,000,000 / 50,000 ≈ 100... but the actions-per-day divisor is per-action; the rule of thumb gives an order of magnitude in the low-thousands. The key is designing for the *peak*, not the 58 QPS daily average.',
+      },
+      {
+        id: 'q2',
+        prompt:
+          'Your app server handles ~5,000 rps per instance. Peak load is 25,000 rps. How many instances, with healthy headroom?',
+        options: ['5 (exactly peak/capacity)', '6-7 (peak/capacity + headroom)', '1 (one big server)', '25 (one per 1k rps)'],
+        correctIndex: 1,
+        explanation:
+          'ceil(25,000 / 5,000) = 5, but a node at 100% is one blip from failure. Add ~30% headroom → 6-7 instances so you survive a replica loss and a traffic spike.',
+      },
+      {
+        id: 'q3',
+        prompt: 'Your traffic averages 200 rps but spikes to 2,000 rps during daily peaks. What do you size for?',
+        options: ['200 rps (the average)', '2,000 rps (the peak), with headroom', '100 rps (half the average, to save cost)', '20,000 rps (10× the peak, always)'],
+        correctIndex: 1,
+        explanation:
+          'Always size for the peak (plus headroom), not the average. A system built for average capacity falls over during the very peaks it exists to serve.',
+      },
+      {
+        id: 'q4',
+        prompt: 'You write 100 rows/sec at 1 KB each and keep them for 90 days. Roughly how much hot storage do you need?',
+        options: ['~90 KB', '~78 GB', '~78 MB', '~780 GB'],
+        correctIndex: 1,
+        explanation:
+          '100 rows/s × 86,400 s/day × 90 days × 1 KB ≈ 778,000,000 KB ≈ ~780 GB raw (before replication/indexes). Always state the retention window — 90 days vs 5 years is a 20× difference.',
+      },
+    ],
+  },
+
+  /* ---- Lesson: cost modeling ---- */
+  {
+    id: 'q-4-lesson-cost',
+    type: 'lesson',
+    title: 'Cost Modeling',
+    phaseId: 'phase-4',
+    order: 6,
+    xpReward: 100,
+    conceptId: 'c-4-cost',
+    prerequisites: ['q-4-lesson-estimation'],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'You deploy 10 app replicas "just in case" traffic spikes, but only 4 ever get utilized. What is the cost impact?',
+        options: [
+          'No impact — unused instances are free',
+          'You pay for all 10; the 6 idle ones are pure waste',
+          'You only pay for the 4 utilized instances',
+          'Cloud providers refund idle instances automatically',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Compute is billed by instance-hour, whether busy or idle. An over-scaled fleet is the #1 cloud waste — right-size to peak + headroom and remove the rest.',
+      },
+      {
+        id: 'q2',
+        prompt: 'How does a CDN typically affect your egress (data-out) bill?',
+        options: [
+          'Increases it — the CDN is extra infrastructure',
+          'Decreases it — users are served from edge POPs, not your origin',
+          'No effect on egress',
+          'Doubles it — you pay origin AND edge egress',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Egress is charged for traffic leaving the provider network. A CDN serves most users from edge POPs, so far less traffic egresses your origin — often net cheaper *and* faster.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'A stakeholder asks for "five 9s" (99.999%) availability on an internal tool used during business hours. What is the right cost response?',
+        options: [
+          'Agree — more 9s is always better',
+          'Push back — five 9s needs multi-region and roughly doubles cost; an internal tool likely does not justify it',
+          'Five 9s costs the same as three 9s',
+          'Refuse any availability target',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Each additional "9" roughly doubles cost (more redundancy, multi-AZ, then multi-region). Don\'t buy nines the business didn\'t ask for — match the SLO to the real cost of downtime.',
+      },
+      {
+        id: 'q4',
+        prompt: 'In this game, how is a topology\'s monthly cost computed?',
+        options: [
+          'Only the busiest node counts',
+          'Σ (costPerMonth × replicas) over every placed node',
+          'The cheapest node × number of connections',
+          'Fixed flat rate regardless of design',
+        ],
+        correctIndex: 1,
+        explanation:
+          'You pay for what you deploy — every node on the canvas (× its replicas) adds to the bill. An idle "just in case" component is pure waste against the budget.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: redis-cli basics ---- */
   {
     id: 'q-4-command-redis',
     type: 'command',
     title: 'Redis CLI Lab',
     phaseId: 'phase-4',
-    order: 5,
+    order: 7,
     xpReward: 150,
     intro:
       'You have a fresh Redis. Cache a hot user profile with a TTL, read it back, and inspect hit-rate stats.',
@@ -458,7 +630,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Add Cache to a Slow Read Path',
     phaseId: 'phase-4',
-    order: 6,
+    order: 8,
     xpReward: 250,
     brief:
       'ScaleUp\'s product-detail page is served straight from Postgres and p95 is over 200 ms. Reads dominate the traffic (95% reads), so the cheapest, fastest fix is to put a cache in front of the DB. Add Redis to the path so hot reads stay under 60 ms p95 at 5,000 rps, 99.9% availability, under $2,500/month.',
@@ -467,7 +639,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     target: {
       minRps: 5_000,
       maxLatencyP95: 60,
-      maxCostPerMonth: 2_500,
+      maxCostPerMonth: 1_850,
       minAvailability: 0.999,
     },
     traffic: { rps: 5_000, readRatio: 0.95 },
@@ -480,7 +652,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Cache Stampede',
     phaseId: 'phase-4',
-    order: 7,
+    order: 9,
     xpReward: 250,
     failureDescription:
       'At 09:00, right after the homepage banner swapped, the homepage\'s "featured product" cache key expired. Database CPU jumped to 100% and p95 latency went from 40 ms to 1,800 ms. The app is up, the cache is up, the DB is up — but it is drowning.',
@@ -532,7 +704,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Optimize a Slow API',
     phaseId: 'phase-4',
-    order: 8,
+    order: 10,
     xpReward: 500,
     brief:
       'You are now the lead. The product API runs at p95 = 800 ms because every read hits the database and assets are served from the origin. Reads are 97% of traffic. Drive p95 under 80 ms at 10,000 rps, 99.95% availability, under $3,000/month. You must use an app server, a SQL database, a cache, and a CDN. Hint: serve static/cacheable responses from the CDN edge, cache hot dynamic reads in Redis, and keep the DB for writes and cold misses.',
@@ -547,7 +719,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     target: {
       minRps: 10_000,
       maxLatencyP95: 80,
-      maxCostPerMonth: 3_000,
+      maxCostPerMonth: 2_100,
       minAvailability: 0.9995,
     },
     traffic: { rps: 10_000, readRatio: 0.97 },

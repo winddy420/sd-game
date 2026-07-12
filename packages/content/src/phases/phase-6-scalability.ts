@@ -70,7 +70,7 @@ Most production systems do **both**: scale the app tier horizontally to absorb t
 Without a cooldown, a metric blip causes a scale-out, then the new capacity drives the metric down, then you scale back in immediately — **thrashing**. A typical cooldown is **3–5 minutes** for scale-out and **10–15 minutes** for scale-in (scale-in is slower because new instances take time to warm up and serve).
 
 ## Predictive scaling
-Uses **historical traffic patterns** to provision capacity *before* the spike arrives. AWS Auto Scaling, Kubernetes HPA with custom metrics, and Cluster Autoscaler all support this.
+Uses **historical traffic patterns** to provision capacity *before* the spike arrives. **AWS Predictive Scaling** forecasts from traffic history and pre-warms capacity. **Kubernetes HPA** (even with custom metrics) and the **Cluster Autoscaler** are *reactive* — they only scale *after* a metric has already moved. For predictive behaviour on Kubernetes, reach for **KEDA** with cron or forecast-based triggers.
 - Train on weeks of traffic data
 - Forecast the next hour
 - Pre-warm capacity so the scale-out is done before users arrive
@@ -248,7 +248,7 @@ export const PHASE_6_QUESTS: Quest[] = [
         options: [
           'Scale it vertically (bigger instance)',
           'Add 10 read replicas and send writes to them',
-          'Restart it under load',
+          'Add an index on every column so all queries are faster',
           'Disable indexes to save CPU',
         ],
         correctIndex: 0,
@@ -419,7 +419,7 @@ export const PHASE_6_QUESTS: Quest[] = [
         prompt: 'What is chaos engineering?',
         options: [
           'Deliberately injecting failures (kill a node, add latency, drop network) into production-like systems to validate that resilience defenses actually work',
-          'Randomly deleting code in production without controls',
+          'A load-testing tool that finds your peak throughput but never breaks components',
           'A testing shortcut that replaces unit tests',
           'Rotating engineers on-call to keep them alert',
         ],
@@ -444,10 +444,10 @@ export const PHASE_6_QUESTS: Quest[] = [
         id: 'q4',
         prompt: 'What is the first step of a chaos experiment, before injecting any failure?',
         options: [
-          'Kill the most important database immediately to maximize impact',
+          'Inject the biggest possible failure first so the results are meaningful',
           'Define a measurable steady-state hypothesis — e.g., "p95 latency < 100ms, error rate < 0.1%"',
           'Disable all alerts to reduce noise during the experiment',
-          'Take the entire system offline first',
+          'Start with the most-used service because that is where bugs hide',
         ],
         correctIndex: 1,
         explanation:
@@ -520,7 +520,7 @@ export const PHASE_6_QUESTS: Quest[] = [
       minRps: 15_000,
       maxLatencyP95: 90,
       minAvailability: 0.9999,
-      maxCostPerMonth: 4_000,
+      maxCostPerMonth: 1_950,
     },
     traffic: { rps: 15_000, readRatio: 0.9 },
     prerequisites: ['q-6-command-autoscale'],
@@ -579,6 +579,38 @@ export const PHASE_6_QUESTS: Quest[] = [
             'Nothing in the symptoms points at the LB — connection pool exhaustion and OOM kills are downstream of the LB. Misdiagnosis wastes the critical first minutes of an incident.',
         },
       ],
+      [
+        {
+          id: 'a',
+          label:
+            'Put a circuit breaker + bounded connection pool with timeouts on the DB path, and load-shed once utilization crosses a threshold',
+          isCorrect: true,
+          feedback:
+            'Correct. Fail fast: a bounded pool + timeout stops one slow dependency from eating every thread; a circuit breaker trips so callers get a controlled error instead of piling up. Load-shedding keeps the healthy fraction of traffic flowing.',
+        },
+        {
+          id: 'b',
+          label:
+            'Raise the connection pool to 10,000 so there is always a free connection',
+          isCorrect: false,
+          feedback:
+            'Wrong — more connections just lets the DB accumulate more slow work and the app hold more memory, accelerating the OOM. The missing ingredient is a bound (bulkhead) and failing fast, not an unbounded buffer.',
+        },
+        {
+          id: 'c',
+          label: 'Remove all timeouts so requests never fail mid-flight',
+          isCorrect: false,
+          feedback:
+            'Wrong. Removing timeouts is exactly how a 30s hang became a 504 cascade. Timeouts are what let a system fail fast and recover; without them, one slow dependency holds resources indefinitely.',
+        },
+        {
+          id: 'd',
+          label: 'Permanently route all traffic to a single read replica',
+          isCorrect: false,
+          feedback:
+            'Wrong. This does nothing about the cascade mechanism (unbounded pools) and a single replica is now a new SPOF. Address the failure mode, don\'t reshuffle where it happens.',
+        },
+      ],
     ],
   },
 
@@ -607,7 +639,7 @@ export const PHASE_6_QUESTS: Quest[] = [
       minRps: 25_000,
       maxLatencyP95: 70,
       minAvailability: 0.9999,
-      maxCostPerMonth: 5_000,
+      maxCostPerMonth: 2_100,
     },
     traffic: { rps: 25_000, readRatio: 0.98 },
     prerequisites: ['q-6-incident-cascade'],

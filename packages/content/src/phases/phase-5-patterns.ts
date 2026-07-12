@@ -331,8 +331,8 @@ export const PHASE_5_QUESTS: Quest[] = [
         options: [
           'Back to the head of the queue',
           'A dead-letter queue (DLQ) for inspection',
+          'Retry it forever with no cap — it will succeed eventually',
           'Discarded silently',
-          'Emailed to every user',
         ],
         correctIndex: 1,
         explanation:
@@ -544,7 +544,7 @@ export const PHASE_5_QUESTS: Quest[] = [
     target: {
       minRps: 6_000,
       maxLatencyP95: 100,
-      maxCostPerMonth: 3_500,
+      maxCostPerMonth: 2_100,
       minAvailability: 0.999,
     },
     traffic: { rps: 6_000, readRatio: 0.6 },
@@ -626,7 +626,7 @@ export const PHASE_5_QUESTS: Quest[] = [
     target: {
       minRps: 8_000,
       maxLatencyP95: 120,
-      maxCostPerMonth: 4_500,
+      maxCostPerMonth: 2_200,
       minAvailability: 0.9995,
     },
     traffic: { rps: 8_000, readRatio: 0.7 },

@@ -632,20 +632,42 @@ export const PHASE_3_QUESTS: Quest[] = [
     target: {
       minRps: 3_000,
       maxLatencyP95: 120,
-      maxCostPerMonth: 3_000,
+      maxCostPerMonth: 1_450,
       minAvailability: 0.999,
     },
     traffic: { rps: 3_000, readRatio: 0.9 },
     prerequisites: ['q-3-command-sql'],
   },
 
-  /* ---- 7. Incident: hot partition / replica lag ---- */
+  /* ---- 6b. Architecture: write-heavy ingestion (NoSQL wins on writes) ---- */
+  {
+    id: 'q-3-arch-writes',
+    type: 'architecture',
+    title: 'Design a Write-Heavy Ingestion Pipeline',
+    phaseId: 'phase-3',
+    order: 7,
+    xpReward: 250,
+    brief:
+      'ScaleUp\'s telemetry pipeline ingests 20,000 events/sec and is write-heavy (~65% writes). A single SQL primary chokes on this write rate and you would need several expensive Postgres primaries to keep up. A wide-column NoSQL store (Cassandra) is built for exactly this — massive write throughput on one node. Choose the datastore that fits the workload and stay under $1,450/month, p95 ≤ 120 ms, 99.9% availability.',
+    allowedComponents: ['lb-l7-nginx', 'app-node', 'db-postgres', 'db-cassandra', 'redis'],
+    requiredComponentTypes: ['appServer', 'dbNoSQL'],
+    target: {
+      minRps: 20_000,
+      maxLatencyP95: 120,
+      maxCostPerMonth: 1_450,
+      minAvailability: 0.999,
+    },
+    traffic: { rps: 20_000, readRatio: 0.35 },
+    prerequisites: ['q-3-arch-sharding'],
+  },
+
+  /* ---- 8. Incident: hot partition / replica lag ---- */
   {
     id: 'q-3-incident-hotpartition',
     type: 'incident',
     title: 'Incident: Feed Latency Spike',
     phaseId: 'phase-3',
-    order: 7,
+    order: 8,
     xpReward: 200,
     failureDescription:
       'At 09:17, p95 latency on the social feed jumps from 40 ms to 2,400 ms. Users complain that the feed is "stuck on yesterday\'s posts". One database replica is pinned at 100% CPU; the other two replicas are nearly idle. The primary is healthy.',
@@ -701,7 +723,7 @@ export const PHASE_3_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Design a Social Feed',
     phaseId: 'phase-3',
-    order: 8,
+    order: 9,
     xpReward: 500,
     brief:
       'You are the tech lead for "Chirp", a Twitter-like social network. Design the data layer for the home timeline. Workload: 8,000 rps, 95% reads (people scroll feeds, rarely post). p95 latency must stay under 100 ms — feeds must feel instant — with 99.9% availability and under $4,000/month.\n\nConstraints & hints:\n- Posts are append-only; timelines are read constantly. Cache aggressively.\n- A single SQL primary will not survive the read load — pre-compute timelines or use a document store for the feed.\n- Celebrities break naive fan-out: their posts hit millions of feeds. Consider a hybrid (fan-out-on-write for normal users, fan-out-on-read for celebrities).\n- Required: at least one app server, one cache, and one NoSQL store.',
@@ -723,7 +745,7 @@ export const PHASE_3_QUESTS: Quest[] = [
     target: {
       minRps: 8_000,
       maxLatencyP95: 100,
-      maxCostPerMonth: 4_000,
+      maxCostPerMonth: 1_350,
       minAvailability: 0.999,
     },
     traffic: { rps: 8_000, readRatio: 0.95 },
