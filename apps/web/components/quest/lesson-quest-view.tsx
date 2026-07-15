@@ -54,7 +54,7 @@ export function LessonQuestView({
 
   /** 50:50 — remove two wrong options from this question (keeps the correct one
    *  and one wrong one). Marks the lifeline used, forfeiting first-try bonus. */
-  function useFiftyFifty(qi: number) {
+  function applyFiftyFifty(qi: number) {
     if (submitted) return;
     const q = quest.questions[qi]!;
     if (eliminated[qi]!.length > 0) return; // once per question
@@ -160,7 +160,7 @@ export function LessonQuestView({
                     })}
                   {eliminated[qi]!.length === 0 && !submitted && (
                     <button
-                      onClick={() => useFiftyFifty(qi)}
+                      onClick={() => applyFiftyFifty(qi)}
                       className="mt-1 justify-self-start rounded-lg border border-white/10 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-amber-500/40 hover:text-amber-300"
                       title="Remove two wrong options — forfeits the first-try bonus"
                     >
