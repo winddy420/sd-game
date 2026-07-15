@@ -1,15 +1,16 @@
 'use client';
 
 import { create } from 'zustand';
+import { useTranslations } from 'next-intl';
 import {
   CURRICULUM,
   type Quest,
   type Topology,
+  type Locale,
 } from '@sd-game/content';
 import {
   gradeArchitecture,
   levelFromXp,
-  careerTitle,
   actForLevel,
   registerActivity,
   dayIndex,
@@ -40,13 +41,22 @@ interface GameState {
   lastArchResult: ArchitectureResult | null;
   /** XP gained on the most recent action (for the toast animation). */
   lastXpGain: number | null;
-  /** A non-XP event (badge/act promotion/freeze) to surface as a toast. */
-  lastNotice: { kind: 'badge' | 'act' | 'freeze'; text: string } | null;
+  /** A non-XP event (badge/act promotion/freeze) to surface as a toast. The
+   *  store emits a message key + raw params; the toaster renders it via the
+   *  i18n catalog (translation boundary lives in the UI, not the store). */
+  lastNotice: {
+    kind: 'badge' | 'act' | 'freeze';
+    messageKey: string;
+    params: Record<string, string | number>;
+  } | null;
   /** Monotonic counter bumped on every XP/action — lets the toaster retrigger
    *  even when the XP amount is identical across consecutive actions. */
   lastActionSeq: number;
 
   hydrate: () => Promise<void>;
+
+  /** Switch the UI/content language (persists to IndexedDB + a cookie). */
+  setLocale: (locale: Locale) => void;
 
   /** Complete a non-architecture quest and bank XP. */
   completeQuest: (quest: Quest) => Promise<number>;
@@ -74,9 +84,33 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   async hydrate() {
     if (get().hydrated) return;
-    const [player, reviewCards] = await Promise.all([loadPlayer(), loadReviewCards()]);
+    const [{ player, existed }, reviewCards] = await Promise.all([
+      loadPlayer(),
+      loadReviewCards(),
+    ]);
 
-    set({ player, reviewCards, hydrated: true, lastXpGain: null });
+    // First visit (no save yet): detect language from the browser, default en.
+    let resolved = player;
+    if (!existed && typeof navigator !== 'undefined') {
+      const navLang = navigator.language?.toLowerCase() ?? '';
+      const detected: Locale = navLang.startsWith('th') ? 'th' : 'en';
+      if (detected !== player.locale) {
+        resolved = { ...player, locale: detected };
+        void savePlayer(resolved);
+      }
+    }
+
+    set({ player: resolved, reviewCards, hydrated: true, lastXpGain: null });
+  },
+
+  setLocale(locale) {
+    const player = { ...get().player, locale };
+    set({ player });
+    void savePlayer(player);
+    // Mirror to a cookie so a hard reload preserves locale for any SSR/hint.
+    if (typeof document !== 'undefined') {
+      document.cookie = `NEXT_LOCALE=${locale};path=/;max-age=31536000;samesite=lax`;
+    }
   },
 
   async completeQuest(quest) {
@@ -268,18 +302,26 @@ function awardBadges(player: PlayerState, get: () => GameState) {
 }
 
 /** Build a toast notice: a newly-earned badge wins, else an act promotion that
- *  granted a freeze. Returns null when there is nothing worth surfacing. */
+ *  granted a freeze. Emits a message key + raw params (the toaster localises).
+ *  Returns null when there is nothing worth surfacing. */
 function noticeFor(
   earned: ReturnType<typeof awardBadges>,
   promotedTo: string | null,
-): { kind: 'badge' | 'freeze'; text: string } | null {
+): { kind: 'badge' | 'freeze'; messageKey: string; params: Record<string, string | number> } | null {
   if (earned.length) {
     const b = earned[0]!;
-    return { kind: 'badge', text: `${b.icon} Badge unlocked: ${b.name}` };
+    return {
+      kind: 'badge',
+      messageKey: 'notices.badge',
+      params: { icon: b.icon, name: b.name, badgeId: b.id },
+    };
   }
   if (promotedTo) {
-    const title = promotedTo === 'Staff' ? 'Staff Architect' : `${promotedTo} Engineer`;
-    return { kind: 'freeze', text: `Promoted to ${title}! +1 streak freeze 🧊` };
+    return {
+      kind: 'freeze',
+      messageKey: promotedTo === 'Staff' ? 'notices.freezeArchitect' : 'notices.freezeEngineer',
+      params: { act: promotedTo },
+    };
   }
   return null;
 }
@@ -293,13 +335,21 @@ export function useLevel() {
 }
 
 export function useCareerTitle() {
+  const t = useTranslations();
   const totalXp = useGameStore((s) => s.player.totalXp);
-  return careerTitle(levelFromXp(totalXp).level);
+  const act = actForLevel(levelFromXp(totalXp).level);
+  const kind = act === 'Staff' ? 'architect' : 'engineer';
+  return t(`careerTitle.${kind}`, { act: t(`acts.${act}`) });
 }
 
 export function useAct() {
   const totalXp = useGameStore((s) => s.player.totalXp);
   return actForLevel(levelFromXp(totalXp).level);
+}
+
+/** Current UI/content locale ('en' | 'th'), from persisted player state. */
+export function useLocale(): Locale {
+  return useGameStore((s) => s.player.locale);
 }
 
 export { DAY };

@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { IncidentQuest } from '@sd-game/content';
+import { localizedQuest } from '@sd-game/content';
 import { Card, Button } from '@/components/ui/primitives';
-import { useGameStore } from '@/lib/store/game-store';
+import { useGameStore, useLocale } from '@/lib/store/game-store';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, Check, X } from 'lucide-react';
 
@@ -14,15 +16,18 @@ export function IncidentQuestView({
   quest: IncidentQuest;
   onDone: () => void;
 }) {
+  const t = useTranslations('quest.incident');
+  const tRoot = useTranslations();
+  const locale = useLocale();
+  const q = localizedQuest(quest, locale) as IncidentQuest;
+
   const [stepIdx, setStepIdx] = useState(0);
-  const [choices, setChoices] = useState<(string | null)[]>(
-    quest.steps.map(() => null),
-  );
+  const [choices, setChoices] = useState<(string | null)[]>(quest.steps.map(() => null));
   const [submitted, setSubmitted] = useState(false);
 
   const completeQuest = useGameStore((s) => s.completeQuest);
 
-  const step = quest.steps[stepIdx]!;
+  const step = q.steps[stepIdx]!;
   const chosen = choices[stepIdx];
   const allCorrect = quest.steps.every((stepChoices, i) => {
     const id = choices[i];
@@ -34,12 +39,12 @@ export function IncidentQuestView({
   const last = quest.steps.length - 1;
   const stepHeading =
     quest.steps.length === 1
-      ? 'What is the root cause?'
+      ? t('rootCause')
       : stepIdx === 0
-        ? 'Step 1 — What is the root cause?'
+        ? t('stepRootCause', { n: stepIdx + 1 })
         : stepIdx === last
-          ? `Step ${stepIdx + 1} — How do you prevent a recurrence?`
-          : `Step ${stepIdx + 1} — What is your immediate mitigation?`;
+          ? t('stepPrevent', { n: stepIdx + 1 })
+          : t('stepMitigate', { n: stepIdx + 1 });
 
   function pick(id: string) {
     if (submitted) return;
@@ -65,11 +70,11 @@ export function IncidentQuestView({
       <Card className="border-red-500/30 bg-red-500/[0.03]">
         <div className="mb-2 flex items-center gap-2 text-red-400">
           <AlertTriangle className="h-5 w-5" />
-          <span className="text-sm font-semibold uppercase tracking-wide">PagerDuty: P1 Incident</span>
+          <span className="text-sm font-semibold uppercase tracking-wide">{t('pager')}</span>
         </div>
-        <p className="font-medium">{quest.failureDescription}</p>
+        <p className="font-medium">{q.failureDescription}</p>
         <div className="mt-3 space-y-1.5">
-          {quest.symptoms.map((s, i) => (
+          {q.symptoms.map((s, i) => (
             <div key={i} className="flex items-start gap-2 text-sm text-gray-400">
               <span className="mt-0.5 text-red-400/60">▸</span>
               {s}
@@ -81,7 +86,7 @@ export function IncidentQuestView({
       {/* Diagnosis step */}
       <Card>
         <div className="mb-1 text-xs uppercase tracking-wide text-gray-400">
-          Diagnosis · Step {stepIdx + 1} of {quest.steps.length}
+          {t('diagnosisStep', { current: stepIdx + 1, total: quest.steps.length })}
         </div>
         <h2 className="mb-3 text-lg font-bold">{stepHeading}</h2>
         <div className="grid gap-2">
@@ -132,15 +137,15 @@ export function IncidentQuestView({
           disabled={stepIdx === 0}
           onClick={() => setStepIdx((i) => Math.max(0, i - 1))}
         >
-          ← Back
+          {t('back')}
         </Button>
         {stepIdx < quest.steps.length - 1 ? (
           <Button disabled={!chosen} onClick={() => setStepIdx((i) => i + 1)}>
-            Next →
+            {t('next')}
           </Button>
         ) : (
           <Button disabled={!chosen || submitted} onClick={finish}>
-            Submit diagnosis
+            {t('submitDiagnosis')}
           </Button>
         )}
       </div>
@@ -151,20 +156,20 @@ export function IncidentQuestView({
             {allCorrect ? (
               <>
                 <Check className="mx-auto h-8 w-8 text-emerald-400" />
-                <h2 className="mt-2 text-lg font-bold">Resolved! +{quest.xpReward} XP</h2>
-                <p className="text-sm text-gray-400">Root cause confirmed. Postmortem filed.</p>
+                <h2 className="mt-2 text-lg font-bold">{t('resolvedXp', { xp: quest.xpReward })}</h2>
+                <p className="text-sm text-gray-400">{t('rootCauseConfirmed')}</p>
               </>
             ) : (
               <>
                 <X className="mx-auto h-8 w-8 text-red-400" />
-                <h2 className="mt-2 text-lg font-bold">Not quite</h2>
-                <p className="text-sm text-gray-400">Review the feedback and try again.</p>
+                <h2 className="mt-2 text-lg font-bold">{t('notQuite')}</h2>
+                <p className="text-sm text-gray-400">{t('reviewFeedback')}</p>
               </>
             )}
           </div>
           <div className="mt-4 flex justify-end">
             {allCorrect ? (
-              <Button onClick={onDone}>Continue</Button>
+              <Button onClick={onDone}>{tRoot('quest.continue')}</Button>
             ) : (
               <Button
                 variant="ghost"
@@ -174,7 +179,7 @@ export function IncidentQuestView({
                   setChoices(quest.steps.map(() => null));
                 }}
               >
-                Retry
+                {t('retry')}
               </Button>
             )}
           </div>

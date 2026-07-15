@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CURRICULUM } from '@sd-game/content';
+import { useTranslations } from 'next-intl';
+import { CURRICULUM, localizedPhase, localizedQuest } from '@sd-game/content';
 import { isPhaseUnlocked, isQuestUnlocked } from '@sd-game/game-engine';
-import { useGameStore } from '@/lib/store/game-store';
+import { useGameStore, useLocale } from '@/lib/store/game-store';
 import { Card, Badge, Button } from '@/components/ui/primitives';
 import { QUEST_TYPE_META } from '@/lib/quest-meta';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,9 @@ const ACT_COLOR: Record<string, { dot: string; ring: string; text: string }> = {
 };
 
 export default function MapPage() {
+  const t = useTranslations('map');
+  const tRoot = useTranslations();
+  const locale = useLocale();
   const player = useGameStore((s) => s.player);
   const progress = {
     completedQuestIds: player.completedQuestIds,
@@ -29,17 +33,16 @@ export default function MapPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Career Map</h1>
-        <p className="text-sm text-gray-400">
-          8 phases · Junior → Staff Architect · ScaleUp grows from 10 to 10M users.
-        </p>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <p className="text-sm text-gray-400">{t('subtitle')}</p>
       </div>
 
       <div className="relative space-y-3">
         {/* Vertical spine */}
         <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-white/5" />
 
-        {CURRICULUM.phases.map((phase) => {
+        {CURRICULUM.phases.map((rawPhase) => {
+          const phase = localizedPhase(rawPhase, locale);
           const unlocked = isPhaseUnlocked(CURRICULUM, phase.id, progress);
           const done = phase.questIds.every((id) => player.completedQuestIds.includes(id));
           const doneCount = phase.questIds.filter((id) =>
@@ -78,19 +81,21 @@ export default function MapPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className={cn('bg-white/5', colors.text)}>
                         <span className={cn('h-1.5 w-1.5 rounded-full', colors.dot)} />
-                        {phase.act} · {phase.scale}
+                        {t('actScale', { act: tRoot(`acts.${phase.act}` as 'Junior'), scale: phase.scale })}
                       </Badge>
                       {!unlocked && (
                         <Badge className="bg-white/5 text-gray-400">
-                          <Lock className="h-3 w-3" /> Locked
+                          <Lock className="h-3 w-3" /> {t('locked')}
                         </Badge>
                       )}
-                      {done && <Badge className="bg-emerald-500/15 text-emerald-400">Complete</Badge>}
+                      {done && (
+                        <Badge className="bg-emerald-500/15 text-emerald-400">{t('complete')}</Badge>
+                      )}
                     </div>
                     <h2 className="mt-2 text-lg font-bold">{phase.title}</h2>
                     <p className="text-sm text-gray-400">{phase.tagline}</p>
                     <div className="mt-1.5 text-xs text-gray-400">
-                      {doneCount}/{phase.questIds.length} quests done
+                      {t('questsDone', { done: doneCount, total: phase.questIds.length })}
                     </div>
                   </div>
                   {unlocked &&
@@ -104,7 +109,8 @@ export default function MapPage() {
                 {isExpanded && unlocked && (
                   <div className="mt-4 space-y-2 border-t border-white/5 pt-4">
                     {phase.questIds.map((qid) => {
-                      const q = CURRICULUM.quests.find((x) => x.id === qid)!;
+                      const rawQ = CURRICULUM.quests.find((x) => x.id === qid)!;
+                      const q = localizedQuest(rawQ, locale);
                       const qUnlocked = isQuestUnlocked(CURRICULUM, q, progress);
                       const qDone = player.completedQuestIds.includes(qid);
                       const meta = QUEST_TYPE_META[q.type];
@@ -128,7 +134,9 @@ export default function MapPage() {
                             <div className="flex items-center gap-2 font-medium">
                               {q.title}
                               {isCapstone && (
-                                <Badge className="bg-accent/15 text-accent-soft">Capstone</Badge>
+                                <Badge className="bg-accent/15 text-accent-soft">
+                                  {t('capstone')}
+                                </Badge>
                               )}
                             </div>
                             <div className="text-xs text-gray-400">+{q.xpReward} XP</div>
@@ -137,7 +145,7 @@ export default function MapPage() {
                             <Check className="h-4 w-4 text-emerald-400" />
                           ) : qUnlocked ? (
                             <Button size="sm" variant="secondary">
-                              Play
+                              {t('play')}
                             </Button>
                           ) : (
                             <Lock className="h-4 w-4 text-gray-600" />

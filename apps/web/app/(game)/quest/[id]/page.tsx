@@ -2,11 +2,12 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CURRICULUM } from '@sd-game/content';
+import { useTranslations } from 'next-intl';
+import { CURRICULUM, localizedPhase, localizedQuest } from '@sd-game/content';
 import { isQuestUnlocked, blockersFor } from '@sd-game/game-engine';
-import { useGameStore } from '@/lib/store/game-store';
-import { QUEST_TYPE_META } from '@/lib/quest-meta';
-import { Card, Button, Badge } from '@/components/ui/primitives';
+import { useGameStore, useLocale } from '@/lib/store/game-store';
+import { QUEST_TYPE_META, useQuestTypeMeta } from '@/lib/quest-meta';
+import { Card, Badge } from '@/components/ui/primitives';
 import { ArrowLeft, Lock } from 'lucide-react';
 import { LessonQuestView } from '@/components/quest/lesson-quest-view';
 import { ArchitectureQuestView } from '@/components/quest/architecture-quest-view';
@@ -14,9 +15,13 @@ import { IncidentQuestView } from '@/components/quest/incident-quest-view';
 import { CommandQuestView } from '@/components/quest/command-quest-view';
 
 export default function QuestPage() {
+  const t = useTranslations('quest');
+  const tRoot = useTranslations();
+  const locale = useLocale();
+  const questTypeMeta = useQuestTypeMeta();
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const quest = CURRICULUM.quests.find((q) => q.id === params.id);
+  const rawQuest = CURRICULUM.quests.find((q) => q.id === params.id);
 
   const player = useGameStore((s) => s.player);
   const progress = {
@@ -24,31 +29,32 @@ export default function QuestPage() {
     learnedConceptIds: player.learnedConceptIds,
   };
 
-  if (!quest) {
+  if (!rawQuest) {
     return (
       <Card>
-        <p>Quest not found.</p>
+        <p>{t('notFound')}</p>
         <Link href="/map" className="text-accent-soft underline">
-          Back to map
+          {t('backToMap')}
         </Link>
       </Card>
     );
   }
 
-  const phase = CURRICULUM.phases.find((p) => p.id === quest.phaseId)!;
-  const unlocked = isQuestUnlocked(CURRICULUM, quest, progress);
-  const blockers = blockersFor(CURRICULUM, quest, progress);
+  const quest = localizedQuest(rawQuest, locale);
+  const phase = localizedPhase(CURRICULUM.phases.find((p) => p.id === quest.phaseId)!, locale);
+  const unlocked = isQuestUnlocked(CURRICULUM, rawQuest, progress);
+  const blockers = blockersFor(CURRICULUM, rawQuest, progress).map((b) => localizedQuest(b, locale));
   const completed = player.completedQuestIds.includes(quest.id);
   const meta = QUEST_TYPE_META[quest.type];
 
   if (!unlocked) {
     return (
       <div className="space-y-4">
-        <BackLink phaseId={quest.phaseId} />
+        <BackLink phaseId={quest.phaseId} label={t('backToMap')} />
         <Card className="text-center">
           <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
           <h1 className="text-xl font-bold">{quest.title}</h1>
-          <p className="mt-1 text-sm text-gray-400">Complete these first to unlock:</p>
+          <p className="mt-1 text-sm text-gray-400">{t('unlockFirst')}</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {blockers.map((b) => (
               <Link key={b.id} href={`/quest/${b.id}`}>
@@ -65,39 +71,51 @@ export default function QuestPage() {
 
   return (
     <div className="space-y-4">
-      <BackLink phaseId={quest.phaseId} />
+      <BackLink phaseId={quest.phaseId} label={t('backToMap')} />
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="text-2xl">{meta.icon}</span>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold">{quest.title}</h1>
-              {completed && <Badge className="bg-emerald-500/15 text-emerald-400">✓ Done</Badge>}
+              {completed && (
+                <Badge className="bg-emerald-500/15 text-emerald-400">{t('done')}</Badge>
+              )}
             </div>
             <p className="text-xs text-gray-400">
-              {phase.title} · {meta.label} · +{quest.xpReward} XP
+              {t('metaLine', {
+                phase: phase.title,
+                type: questTypeMeta(quest.type).label,
+                xp: quest.xpReward,
+              })}
             </p>
           </div>
         </div>
       </div>
 
-      {quest.type === 'lesson' && <LessonQuestView quest={quest} onDone={() => router.push('/map')} />}
+      {quest.type === 'lesson' && (
+        <LessonQuestView quest={quest} onDone={() => router.push('/map')} />
+      )}
       {quest.type === 'architecture' && (
         <ArchitectureQuestView quest={quest} onDone={() => router.push('/map')} />
       )}
-      {quest.type === 'incident' && <IncidentQuestView quest={quest} onDone={() => router.push('/map')} />}
-      {quest.type === 'command' && <CommandQuestView quest={quest} onDone={() => router.push('/map')} />}
+      {quest.type === 'incident' && (
+        <IncidentQuestView quest={quest} onDone={() => router.push('/map')} />
+      )}
+      {quest.type === 'command' && (
+        <CommandQuestView quest={quest} onDone={() => router.push('/map')} />
+      )}
     </div>
   );
 }
 
-function BackLink({ phaseId }: { phaseId: string }) {
+function BackLink({ phaseId, label }: { phaseId: string; label: string }) {
   return (
     <Link
       href={`/map?phase=${phaseId}`}
       className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200"
     >
-      <ArrowLeft className="h-4 w-4" /> Back to map
+      <ArrowLeft className="h-4 w-4" /> {label}
     </Link>
   );
 }

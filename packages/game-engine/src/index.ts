@@ -13,7 +13,9 @@ export {
   effectiveCapacity,
   nodeLatency,
   describeAvailability,
+  availabilityParts,
 } from './simulation/engine';
+export type { AvailabilityParts } from './simulation/engine';
 
 // Quest grading
 export {
@@ -29,6 +31,7 @@ export type {
   CommandResult,
   ArchitectureResult,
   AnyQuestResult,
+  FeedbackItem,
 } from './quest/engine';
 
 // Progression

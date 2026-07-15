@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { LessonQuest } from '@sd-game/content';
-import { CURRICULUM } from '@sd-game/content';
+import { CURRICULUM, localizedConcept, localizedQuest } from '@sd-game/content';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Card, Button } from '@/components/ui/primitives';
-import { useGameStore } from '@/lib/store/game-store';
+import { useGameStore, useLocale } from '@/lib/store/game-store';
 import { cn } from '@/lib/utils';
 import { Check, X, Sparkles, Star } from 'lucide-react';
 
@@ -27,7 +28,12 @@ export function LessonQuestView({
   quest: LessonQuest;
   onDone: () => void;
 }) {
+  const t = useTranslations('quest.lesson');
+  const tRoot = useTranslations();
+  const locale = useLocale();
   const concept = CURRICULUM.concepts.find((c) => c.id === quest.conceptId);
+  const q = localizedQuest(quest, locale) as LessonQuest;
+  const lc = concept ? localizedConcept(concept, locale) : undefined;
   const [stage, setStage] = useState<'read' | 'quiz' | 'result'>('read');
   const [answers, setAnswers] = useState<number[]>(() => quest.questions.map(() => -1));
   const [submitted, setSubmitted] = useState(false);
@@ -91,42 +97,42 @@ export function LessonQuestView({
 
   return (
     <div className="space-y-4">
-      {stage !== 'quiz' && concept && (
+      {stage !== 'quiz' && lc && (
         <Card>
           <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-accent-soft">
-            <Sparkles className="h-3.5 w-3.5" /> Concept
+            <Sparkles className="h-3.5 w-3.5" /> {t('concept')}
           </div>
-          <h2 className="mb-3 text-xl font-bold">{concept.title}</h2>
-          <p className="mb-4 text-gray-400">{concept.summary}</p>
+          <h2 className="mb-3 text-xl font-bold">{lc.title}</h2>
+          <p className="mb-4 text-gray-400">{lc.summary}</p>
           <div className="prose-game max-w-none text-sm text-gray-200">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{concept.body}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{lc.body}</ReactMarkdown>
           </div>
           <div className="mt-5 flex justify-end">
-            <Button onClick={() => setStage('quiz')}>Continue to quiz →</Button>
+            <Button onClick={() => setStage('quiz')}>{t('continueToQuiz')}</Button>
           </div>
         </Card>
       )}
 
       {stage === 'quiz' && (
         <Card>
-          <h2 className="mb-1 text-lg font-bold">Quick check</h2>
+          <h2 className="mb-1 text-lg font-bold">{t('quickCheck')}</h2>
           <p className="mb-4 text-sm text-gray-400">
-            Answer all {quest.questions.length} to earn {quest.xpReward} XP.
-            {attempts === 0 && ' Pass first-try for a mastery star ⭐.'}
+            {t('answerAll', { total: quest.questions.length, xp: quest.xpReward })}
+            {attempts === 0 && ` ${t('firstTryBonus')}`}
           </p>
           <div className="space-y-5">
-            {quest.questions.map((q, qi) => (
-              <div key={q.id}>
+            {q.questions.map((qq, qi) => (
+              <div key={qq.id}>
                 <p className="mb-2 font-medium">
-                  {qi + 1}. {q.prompt}
+                  {qi + 1}. {qq.prompt}
                 </p>
                 <div className="grid gap-2">
                   {order[qi]!
                     .filter((oi) => !eliminated[qi]!.includes(oi))
                     .map((oi) => {
-                      const opt = q.options[oi]!;
+                      const opt = qq.options[oi]!;
                       const selected = answers[qi] === oi;
-                      const isCorrect = oi === q.correctIndex;
+                      const isCorrect = oi === qq.correctIndex;
                       return (
                         <button
                           key={oi}
@@ -162,9 +168,9 @@ export function LessonQuestView({
                     <button
                       onClick={() => applyFiftyFifty(qi)}
                       className="mt-1 justify-self-start rounded-lg border border-white/10 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-amber-500/40 hover:text-amber-300"
-                      title="Remove two wrong options — forfeits the first-try bonus"
+                      title={t('fiftyFiftyHint')}
                     >
-                      💡 50:50 hint
+                      {t('fiftyFifty')}
                     </button>
                   )}
                 </div>
@@ -173,10 +179,10 @@ export function LessonQuestView({
           </div>
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setStage('read')}>
-              ← Re-read
+              {t('reread')}
             </Button>
             <Button disabled={answers.some((a) => a < 0)} onClick={handleSubmit}>
-              Submit
+              {tRoot('quest.submit')}
             </Button>
           </div>
         </Card>
@@ -190,12 +196,12 @@ export function LessonQuestView({
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15">
                   <Check className="h-7 w-7 text-emerald-400" />
                 </div>
-                <h2 className="text-xl font-bold">Perfect! +{quest.xpReward} XP</h2>
+                <h2 className="text-xl font-bold">{t('perfect', { xp: quest.xpReward })}</h2>
                 <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-gray-400">
-                  Concept mastered.
+                  {t('conceptMastered')}
                   {firstTry && (
                     <span className="inline-flex items-center gap-1 font-medium text-amber-300">
-                      <Star className="h-3.5 w-3.5 fill-amber-300" /> First-try mastery!
+                      <Star className="h-3.5 w-3.5 fill-amber-300" /> {t('firstTryMastery')}
                     </span>
                   )}
                 </p>
@@ -206,20 +212,20 @@ export function LessonQuestView({
                   <X className="h-7 w-7 text-red-400" />
                 </div>
                 <h2 className="text-xl font-bold">
-                  {correct}/{quest.questions.length} correct
+                  {t('correctCount', { correct, total: quest.questions.length })}
                 </h2>
-                <p className="mt-1 text-sm text-gray-400">Re-read and try again to bank the XP.</p>
+                <p className="mt-1 text-sm text-gray-400">{t('tryAgain')}</p>
               </>
             )}
           </div>
 
           {/* Explanations */}
           <div className="mt-5 space-y-3">
-            {quest.questions.map((q, qi) => {
-              const right = answers[qi] === q.correctIndex;
+            {q.questions.map((qq, qi) => {
+              const right = answers[qi] === qq.correctIndex;
               return (
                 <div
-                  key={q.id}
+                  key={qq.id}
                   className={cn(
                     'rounded-xl border p-3 text-sm',
                     right ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-red-500/20 bg-red-500/5',
@@ -231,11 +237,11 @@ export function LessonQuestView({
                     ) : (
                       <X className="h-4 w-4 text-red-400" />
                     )}
-                    {q.prompt}
+                    {qq.prompt}
                   </div>
                   <p className="mt-1 text-gray-400">
-                    Answer: <span className="text-gray-200">{q.options[q.correctIndex]}</span>.{' '}
-                    {q.explanation}
+                    {t('answerLabel')} <span className="text-gray-200">{qq.options[qq.correctIndex]}</span>.{' '}
+                    {qq.explanation}
                   </p>
                 </div>
               );
@@ -245,10 +251,12 @@ export function LessonQuestView({
           <div className="mt-5 flex justify-end gap-2">
             {!allCorrect && (
               <Button variant="ghost" onClick={resetForRetry}>
-                Retry
+                {t('retry')}
               </Button>
             )}
-            <Button onClick={onDone}>{allCorrect ? 'Continue' : 'Back to map'}</Button>
+            <Button onClick={onDone}>
+              {allCorrect ? tRoot('quest.continue') : tRoot('quest.backToMap')}
+            </Button>
           </div>
         </Card>
       )}

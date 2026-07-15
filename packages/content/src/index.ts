@@ -1,4 +1,6 @@
 export * from './types';
+export * from './i18n';
+export { THAI } from './locales/th';
 export { COMPONENTS, COMPONENT_BY_ID } from './components';
 export { BADGES } from './badges';
 export { ALL_CONCEPTS, ALL_QUESTS, PHASES } from './phases';

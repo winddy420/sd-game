@@ -1,21 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { CURRICULUM } from '@sd-game/content';
-import {
-  availableQuests,
-  isQuestUnlocked,
-  levelFromXp,
-  careerTitle,
-  dueCards,
-} from '@sd-game/game-engine';
-import { useGameStore } from '@/lib/store/game-store';
+import { useTranslations } from 'next-intl';
+import { CURRICULUM, localizedPhase, localizedQuest } from '@sd-game/content';
+import { availableQuests, levelFromXp, dueCards } from '@sd-game/game-engine';
+import { useGameStore, useLocale, useCareerTitle } from '@/lib/store/game-store';
 import { Card, Button, Badge } from '@/components/ui/primitives';
 import { formatNumber } from '@/lib/utils';
 import { ArrowRight, Brain, Zap, BookOpen } from 'lucide-react';
 import { QUEST_TYPE_META } from '@/lib/quest-meta';
 
 export default function HomePage() {
+  const t = useTranslations('home');
+  const locale = useLocale();
   const player = useGameStore((s) => s.player);
   const cards = useGameStore((s) => s.reviewCards);
   const progress = {
@@ -24,13 +21,15 @@ export default function HomePage() {
   };
 
   const { level } = levelFromXp(player.totalXp);
-  const title = careerTitle(level);
+  const title = useCareerTitle();
   const available = availableQuests(CURRICULUM, progress).sort((a, b) => a.order - b.order);
-  const next = available[0];
+  const next = available[0] ? localizedQuest(available[0], locale) : undefined;
   const dueNow = dueCards(cards, Date.now());
 
   const completedCount = player.completedQuestIds.length;
   const totalCount = CURRICULUM.quests.length;
+  const phaseTitle = (phaseId: string) =>
+    localizedPhase(CURRICULUM.phases.find((p) => p.id === phaseId)!, locale).title;
 
   return (
     <div className="space-y-6">
@@ -38,16 +37,15 @@ export default function HomePage() {
       <Card className="bg-gradient-to-br from-accent/20 via-bg-card to-bg-card">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Badge className="mb-2 bg-accent/20 text-accent-soft">Lv {level} · {title}</Badge>
-            <h1 className="text-2xl font-bold sm:text-3xl">Welcome to ScaleUp Inc.</h1>
-            <p className="mt-1 max-w-md text-sm text-gray-400">
-              You're the new engineer. Design systems, survive incidents, and climb from Junior to
-              Staff Architect as the company grows from 10 to 10M users.
-            </p>
+            <Badge className="mb-2 bg-accent/20 text-accent-soft">
+              Lv {level} · {title}
+            </Badge>
+            <h1 className="text-2xl font-bold sm:text-3xl">{t('heroTitle')}</h1>
+            <p className="mt-1 max-w-md text-sm text-gray-400">{t('heroSubtitle')}</p>
           </div>
           <div className="flex flex-col gap-2 text-center">
             <div className="text-3xl font-bold text-accent-soft">{formatNumber(player.totalXp)}</div>
-            <div className="text-xs uppercase tracking-wide text-gray-400">Total XP</div>
+            <div className="text-xs uppercase tracking-wide text-gray-400">{t('totalXp')}</div>
           </div>
         </div>
       </Card>
@@ -59,16 +57,18 @@ export default function HomePage() {
             <div className="flex items-start gap-3">
               <div className="text-2xl">{QUEST_TYPE_META[next.type].icon}</div>
               <div>
-                <div className="text-xs uppercase tracking-wide text-accent-soft">Continue</div>
+                <div className="text-xs uppercase tracking-wide text-accent-soft">
+                  {t('continueLabel')}
+                </div>
                 <div className="text-lg font-semibold">{next.title}</div>
                 <div className="text-xs text-gray-400">
-                  +{next.xpReward} XP · {CURRICULUM.phases.find((p) => p.id === next.phaseId)?.title}
+                  {t('xpPhase', { xp: next.xpReward, phase: phaseTitle(next.phaseId) })}
                 </div>
               </div>
             </div>
             <Link href={`/quest/${next.id}`}>
               <Button size="lg">
-                Start <ArrowRight className="h-4 w-4" />
+                {t('start')} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
@@ -77,10 +77,23 @@ export default function HomePage() {
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard icon={<Zap className="h-4 w-4" />} label="Quests done" value={`${completedCount}/${totalCount}`} />
-        <StatCard icon={<BookOpen className="h-4 w-4" />} label="Concepts" value={`${player.learnedConceptIds.length}`} />
-        <StatCard icon={<Brain className="h-4 w-4" />} label="Due reviews" value={`${dueNow.length}`} highlight={dueNow.length > 0} />
-        <StatCard icon="🏆" label="Badges" value={`${player.badgeIds.length}`} />
+        <StatCard
+          icon={<Zap className="h-4 w-4" />}
+          label={t('questsDone')}
+          value={`${completedCount}/${totalCount}`}
+        />
+        <StatCard
+          icon={<BookOpen className="h-4 w-4" />}
+          label={t('concepts')}
+          value={`${player.learnedConceptIds.length}`}
+        />
+        <StatCard
+          icon={<Brain className="h-4 w-4" />}
+          label={t('dueReviews')}
+          value={`${dueNow.length}`}
+          highlight={dueNow.length > 0}
+        />
+        <StatCard icon="🏆" label={t('badges')} value={`${player.badgeIds.length}`} />
       </div>
 
       {/* Review CTA */}
@@ -90,8 +103,10 @@ export default function HomePage() {
             <div className="flex items-center gap-3">
               <Brain className="h-6 w-6 text-amber-400" />
               <div>
-                <div className="font-semibold">{dueNow.length} concept{dueNow.length > 1 ? 's' : ''} due for review</div>
-                <div className="text-xs text-gray-400">Spaced repetition keeps knowledge sticky. ~5 min.</div>
+                <div className="font-semibold">
+                  {t(dueNow.length === 1 ? 'dueReviewOne' : 'dueReview', { count: dueNow.length })}
+                </div>
+                <div className="text-xs text-gray-400">{t('reviewCta')}</div>
               </div>
             </div>
             <ArrowRight className="h-5 w-5 text-amber-400" />
@@ -102,18 +117,16 @@ export default function HomePage() {
       {/* Available quests */}
       <div>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
-          Available quests
+          {t('availableQuests')}
         </h2>
         {available.length === 0 ? (
           <Card className="text-center text-gray-400">
-            {completedCount === totalCount
-              ? '🎉 You completed every quest. Legendary!'
-              : 'Complete the current quest to unlock more, or check the career map.'}
+            {completedCount === totalCount ? t('allComplete') : t('unlockMore')}
           </Card>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {available.slice(0, 6).map((q) => {
-              const phase = CURRICULUM.phases.find((p) => p.id === q.phaseId)!;
+            {available.slice(0, 6).map((rawQuest) => {
+              const q = localizedQuest(rawQuest, locale);
               return (
                 <Link key={q.id} href={`/quest/${q.id}`}>
                   <Card className="h-full transition-transform hover:scale-[1.01] hover:border-accent/40">
@@ -122,7 +135,7 @@ export default function HomePage() {
                         <span className="text-xl">{QUEST_TYPE_META[q.type].icon}</span>
                         <div>
                           <div className="font-medium">{q.title}</div>
-                          <div className="text-xs text-gray-400">{phase.title}</div>
+                          <div className="text-xs text-gray-400">{phaseTitle(q.phaseId)}</div>
                         </div>
                       </div>
                       <Badge>+{q.xpReward}</Badge>

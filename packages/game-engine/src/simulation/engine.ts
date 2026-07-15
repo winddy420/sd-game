@@ -384,12 +384,23 @@ function emptyMetrics(): SimMetrics {
   };
 }
 
-/** Human-friendly availability string, e.g. 0.9999 → "99.99% (four 9s)". */
-export function describeAvailability(a: number): string {
+/** Structured availability for localised display: { pct: "99.99", nines: 4 }. */
+export interface AvailabilityParts {
+  pct: string;
+  nines: number;
+}
+
+/** Numeric breakdown of an availability fraction, for localised UI rendering. */
+export function availabilityParts(a: number): AvailabilityParts {
   // 3 decimals avoids rounding a borderline value up across a "nine" boundary
   // (e.g. 0.999887 → "99.989% (three 9s)", not "99.99% (three 9s)").
   const pct = (a * 100).toFixed(3).replace(/\.?0+$/, '');
-  const nines = countNines(a);
+  return { pct, nines: countNines(a) };
+}
+
+/** Human-friendly availability string, e.g. 0.9999 → "99.99% (four 9s)". */
+export function describeAvailability(a: number): string {
+  const { pct, nines } = availabilityParts(a);
   const word = nines >= 2 && nines < NINE_WORDS.length ? NINE_WORDS[nines] : String(nines);
   return `${pct}%${nines >= 2 ? ` (${word} 9s)` : ''}`;
 }

@@ -2,21 +2,25 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CURRICULUM } from '@sd-game/content';
+import { useTranslations } from 'next-intl';
+import { CURRICULUM, localizedConcept } from '@sd-game/content';
 import { dueCards, type RecallRating } from '@sd-game/game-engine';
-import { useGameStore } from '@/lib/store/game-store';
+import { useGameStore, useLocale } from '@/lib/store/game-store';
 import { Card, Button } from '@/components/ui/primitives';
 import { Brain, Check, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const RATINGS: { rating: RecallRating; label: string; color: string }[] = [
-  { rating: 'again', label: 'Again', color: 'bg-red-500/20 text-red-400 hover:bg-red-500/30' },
-  { rating: 'hard', label: 'Hard', color: 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30' },
-  { rating: 'good', label: 'Good', color: 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' },
-  { rating: 'easy', label: 'Easy', color: 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' },
+const RATINGS: { rating: RecallRating; labelKey: string; color: string }[] = [
+  { rating: 'again', labelKey: 'rateAgain', color: 'bg-red-500/20 text-red-400 hover:bg-red-500/30' },
+  { rating: 'hard', labelKey: 'rateHard', color: 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30' },
+  { rating: 'good', labelKey: 'rateGood', color: 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' },
+  { rating: 'easy', labelKey: 'rateEasy', color: 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' },
 ];
 
 export default function ReviewPage() {
+  const t = useTranslations('review');
+  const tRoot = useTranslations();
+  const locale = useLocale();
   const cards = useGameStore((s) => s.reviewCards);
   const recordReview = useGameStore((s) => s.recordReview);
 
@@ -39,29 +43,27 @@ export default function ReviewPage() {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold">Daily Review</h1>
-          <p className="text-sm text-gray-400">Spaced repetition — keep concepts sticky.</p>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
+          <p className="text-sm text-gray-400">{t('subtitle')}</p>
         </div>
         <Card className="text-center">
           {reviewed > 0 ? (
             <>
               <Check className="mx-auto mb-3 h-10 w-10 text-emerald-400" />
-              <h2 className="text-xl font-bold">All caught up! 🎉</h2>
+              <h2 className="text-xl font-bold">{t('allCaughtUp')}</h2>
               <p className="mt-1 text-sm text-gray-400">
-                You reviewed {reviewed} concept{reviewed > 1 ? 's' : ''}. Come back tomorrow.
+                {t(reviewed === 1 ? 'reviewedMsgOne' : 'reviewedMsg', { count: reviewed })}
               </p>
             </>
           ) : (
             <>
               <Brain className="mx-auto mb-3 h-10 w-10 text-gray-400" />
-              <h2 className="text-xl font-bold">Nothing due right now</h2>
-              <p className="mt-1 text-sm text-gray-400">
-                Learn new concepts and reviews will queue up here automatically.
-              </p>
+              <h2 className="text-xl font-bold">{t('empty')}</h2>
+              <p className="mt-1 text-sm text-gray-400">{t('emptyHint')}</p>
             </>
           )}
           <Link href="/map">
-            <Button className="mt-4">Back to map</Button>
+            <Button className="mt-4">{tRoot('quest.backToMap')}</Button>
           </Link>
         </Card>
       </div>
@@ -69,14 +71,15 @@ export default function ReviewPage() {
   }
 
   const concept = CURRICULUM.concepts.find((c) => c.id === current.conceptId);
+  const lc = concept ? localizedConcept(concept, locale) : undefined;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Daily Review</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-sm text-gray-400">
-            {idx + 1} of {due.length} due · {reviewed} reviewed
+            {t('progress', { current: idx + 1, total: due.length, reviewed })}
           </p>
         </div>
         <div className="h-2 w-24 overflow-hidden rounded-full bg-white/5">
@@ -88,24 +91,22 @@ export default function ReviewPage() {
       </div>
 
       <Card>
-        <div className="text-xs uppercase tracking-wide text-accent-soft">Recall this concept</div>
-        <h2 className="mt-1 text-xl font-bold">{concept?.title ?? current.conceptId}</h2>
-        <p className="mt-2 text-gray-300">{concept?.summary}</p>
+        <div className="text-xs uppercase tracking-wide text-accent-soft">{t('recall')}</div>
+        <h2 className="mt-1 text-xl font-bold">{lc?.title ?? current.conceptId}</h2>
+        <p className="mt-2 text-gray-300">{lc?.summary}</p>
 
         {!revealed ? (
           <div className="mt-6 flex justify-center">
             <Button variant="secondary" onClick={() => setRevealed(true)}>
-              <Eye className="h-4 w-4" /> Show answer
+              <Eye className="h-4 w-4" /> {t('showAnswer')}
             </Button>
           </div>
         ) : (
           <>
             <div className="prose-game mt-4 max-h-60 overflow-y-auto rounded-xl border border-white/5 bg-black/20 p-4 text-sm text-gray-300">
-              {concept?.body.split('\n').slice(0, 8).join('\n')}
+              {lc?.body.split('\n').slice(0, 8).join('\n')}
             </div>
-            <div className="mt-4 text-center text-xs text-gray-400">
-              How well did you recall it?
-            </div>
+            <div className="mt-4 text-center text-xs text-gray-400">{t('howWell')}</div>
             <div className="mt-2 grid grid-cols-4 gap-2">
               {RATINGS.map((r) => (
                 <button
@@ -116,12 +117,12 @@ export default function ReviewPage() {
                     r.color,
                   )}
                 >
-                  {r.label}
+                  {t(r.labelKey as 'rateAgain')}
                 </button>
               ))}
             </div>
             <p className="mt-2 text-center text-[10px] text-gray-600">
-              next interval: {current.reps === 0 ? '1d' : current.interval + 'd'} → adjusts with your rating
+              {t('nextInterval', { n: current.reps === 0 ? '1d' : `${current.interval}d` })}
             </p>
           </>
         )}

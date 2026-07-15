@@ -3,7 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto;
+  /* Latin system stack first (per-glyph fallback), Thai-capable font last so
+     Thai glyphs render with the self-hosted Noto Sans Thai. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    var(--font-thai, sans-serif);
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
 }
 
@@ -12,6 +15,17 @@ body {
   background-color: #0a0a0f;
   color: #e5e7eb;
   min-height: 100%;
+}
+
+/* Thai typography: no inter-word spaces → needs taller line-height and
+   per-character word breaking so long Thai strings wrap inside fixed-width
+   containers (canvas nodes, badges, tiles) instead of overflowing. */
+[lang='th'],
+[lang='th'] body {
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  -webkit-line-break: strict;
 }
 
 * {

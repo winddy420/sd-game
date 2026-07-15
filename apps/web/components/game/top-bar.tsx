@@ -1,15 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { Flame, Trophy, Home, Map as MapIcon } from 'lucide-react';
+import { Flame, Trophy, Map as MapIcon } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useGameStore, useLevel, useCareerTitle } from '@/lib/store/game-store';
 import { formatNumber } from '@/lib/utils';
+import { LocaleSwitcher } from '@/components/game/locale-switcher';
 
 export function TopBar() {
+  const t = useTranslations('topbar');
   const player = useGameStore((s) => s.player);
   const { level, intoLevel, nextLevelCost } = useLevel();
   const title = useCareerTitle();
   const pct = nextLevelCost > 0 ? Math.min(100, (intoLevel / nextLevelCost) * 100) : 100;
+  const freezes = player.streak.freezes;
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-bg/80 backdrop-blur-xl">
@@ -22,10 +26,10 @@ export function TopBar() {
         <div className="flex-1">
           <div className="flex items-center justify-between text-xs text-gray-400">
             <span className="font-medium text-gray-200">
-              Lv {level} · {title}
+              {t('levelTitle', { level, title })}
             </span>
             <span className="hidden sm:inline">
-              {formatNumber(intoLevel)} / {formatNumber(nextLevelCost)} XP
+              {t('xpProgress', { into: formatNumber(intoLevel), next: formatNumber(nextLevelCost) })}
             </span>
           </div>
           <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/5">
@@ -36,32 +40,38 @@ export function TopBar() {
           </div>
         </div>
 
+        <LocaleSwitcher />
+
         <Link
           href="/map"
           className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-gray-300 hover:bg-white/5"
-          title="Career map"
+          title={t('mapHint')}
         >
           <MapIcon className="h-4 w-4" />
-          <span className="hidden sm:inline">Map</span>
+          <span className="hidden sm:inline">{t('map')}</span>
         </Link>
         <Link
           href="/profile"
           className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-gray-300 hover:bg-white/5"
-          title="Profile & badges"
+          title={t('profileHint')}
         >
           <Trophy className="h-4 w-4" />
-          <span className="hidden sm:inline">Profile</span>
+          <span className="hidden sm:inline">{t('profile')}</span>
         </Link>
 
         <div
           className="flex items-center gap-1 rounded-lg bg-orange-500/10 px-2 py-1.5 text-sm font-semibold text-orange-400"
-          title={`${player.streak.current}-day streak (best ${player.streak.longest}) · ${player.streak.freezes} streak freeze${player.streak.freezes === 1 ? '' : 's'} available (refill at each promotion)`}
+          title={t(freezes === 1 ? 'streakHint' : 'streakHintPlural', {
+            current: player.streak.current,
+            longest: player.streak.longest,
+            freezes,
+          })}
         >
           <Flame className="h-4 w-4" />
           {player.streak.current}
-          {player.streak.freezes > 0 && (
-            <span className="ml-0.5 text-sky-400" title="streak freezes">
-              🧊{player.streak.freezes}
+          {freezes > 0 && (
+            <span className="ml-0.5 text-sky-400" title={t('freezesHint')}>
+              🧊{freezes}
             </span>
           )}
         </div>

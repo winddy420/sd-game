@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import type { CommandQuest } from '@sd-game/content';
+import { localizedQuest } from '@sd-game/content';
 import { Card, Button } from '@/components/ui/primitives';
-import { useGameStore } from '@/lib/store/game-store';
-import { Check, X, Terminal, Lightbulb } from 'lucide-react';
+import { useGameStore, useLocale } from '@/lib/store/game-store';
+import { Check, Terminal, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Line {
@@ -19,10 +21,15 @@ export function CommandQuestView({
   quest: CommandQuest;
   onDone: () => void;
 }) {
+  const t = useTranslations('quest.command');
+  const tRoot = useTranslations();
+  const locale = useLocale();
+  const q = localizedQuest(quest, locale) as CommandQuest;
+
   const [stepIdx, setStepIdx] = useState(0);
   const [typed, setTyped] = useState('');
   const [lines, setLines] = useState<Line[]>([
-    { kind: 'output', text: quest.intro },
+    { kind: 'output', text: q.intro },
     { kind: 'output', text: '' },
   ]);
   const [solved, setSolved] = useState<boolean[]>(quest.steps.map(() => false));
@@ -35,16 +42,17 @@ export function CommandQuestView({
     inputRef.current?.focus();
   }, [stepIdx]);
 
-  const step = quest.steps[stepIdx]!;
+  const step = q.steps[stepIdx]!;
+  const stepOriginal = quest.steps[stepIdx]!;
 
   function submit() {
     const cmd = typed.trim();
     if (!cmd) return;
     const newLines: Line[] = [{ kind: 'input', text: `$ ${cmd}` }];
 
-    const isCorrect = step.acceptedPatterns.some((p) => new RegExp(p, 'i').test(cmd));
+    const isCorrect = stepOriginal.acceptedPatterns.some((p) => new RegExp(p, 'i').test(cmd));
     if (isCorrect) {
-      newLines.push({ kind: 'success', text: '✓ Accepted' });
+      newLines.push({ kind: 'success', text: t('accepted') });
       const nextSolved = [...solved];
       nextSolved[stepIdx] = true;
       setSolved(nextSolved);
@@ -58,27 +66,21 @@ export function CommandQuestView({
         void completeQuest(quest);
       }
     } else {
-      newLines.push({
-        kind: 'error',
-        text: `command not recognized — try again, or use the hint.`,
-      });
+      newLines.push({ kind: 'error', text: t('notRecognized') });
       setLines((prev) => [...prev, ...newLines]);
       setTyped('');
     }
   }
 
   function showHint() {
-    setLines((prev) => [
-      ...prev,
-      { kind: 'hint', text: `💡 ${step.hint}` },
-    ]);
+    setLines((prev) => [...prev, { kind: 'hint', text: `💡 ${step.hint}` }]);
   }
 
   return (
     <div className="space-y-4">
       {/* Progress chips */}
       <div className="flex flex-wrap gap-2">
-        {quest.steps.map((s, i) => (
+        {quest.steps.map((_, i) => (
           <div
             key={i}
             className={cn(
@@ -128,7 +130,7 @@ export function CommandQuestView({
           {/* Current task */}
           {!allDone && (
             <div className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-3 text-xs not-italic">
-              <span className="font-semibold text-accent-soft">Task {stepIdx + 1}: </span>
+              <span className="font-semibold text-accent-soft">{t('task', { n: stepIdx + 1 })} </span>
               <span className="text-gray-300">{step.prompt}</span>
             </div>
           )}
@@ -148,7 +150,7 @@ export function CommandQuestView({
                 autoCapitalize="off"
                 autoComplete="off"
                 className="flex-1 bg-transparent font-mono text-sm text-gray-100 outline-none placeholder:text-gray-600"
-                placeholder="type a command…"
+                placeholder={t('typeHint')}
               />
             </div>
           )}
@@ -157,7 +159,7 @@ export function CommandQuestView({
         {!allDone && (
           <div className="flex justify-end gap-2 border-t border-white/5 px-4 py-2">
             <Button variant="ghost" size="sm" onClick={showHint}>
-              <Lightbulb className="h-3.5 w-3.5" /> Hint
+              <Lightbulb className="h-3.5 w-3.5" /> {t('hint')}
             </Button>
           </div>
         )}
@@ -169,22 +171,19 @@ export function CommandQuestView({
             <div className="flex items-center gap-3">
               <Check className="h-8 w-8 text-emerald-400" />
               <div>
-                <h2 className="text-lg font-bold">All commands executed! +{quest.xpReward} XP</h2>
+                <h2 className="text-lg font-bold">{t('executedXp', { xp: quest.xpReward })}</h2>
                 <p className="text-sm text-gray-400">
-                  Sample answers:{' '}
-                  {quest.steps.map((s) => s.sampleAnswer).join(' · ')}
+                  {t('sampleAnswers')} {q.steps.map((s) => s.sampleAnswer).join(' · ')}
                 </p>
               </div>
             </div>
-            <Button onClick={onDone}>Continue</Button>
+            <Button onClick={onDone}>{tRoot('quest.continue')}</Button>
           </div>
         </Card>
       )}
 
       {!allDone && solved.some((s) => !s) && (
-        <p className="text-center text-xs text-gray-400">
-          Tip: commands are matched flexibly — press Enter to run.
-        </p>
+        <p className="text-center text-xs text-gray-400">{t('tip')}</p>
       )}
     </div>
   );

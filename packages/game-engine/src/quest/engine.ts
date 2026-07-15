@@ -102,7 +102,25 @@ export interface ArchitectureResult {
   missingTypes: ComponentType[];
   grade: 'S' | 'A' | 'B' | 'C' | 'F';
   passed: boolean;
-  feedback: string[];
+  feedback: FeedbackItem[];
+}
+
+/**
+ * A localised feedback line. The engine emits a stable `key` + raw params; the
+ * UI (translation boundary) renders it via its message catalog. Keeping the
+ * engine free of display strings lets quest grading stay locale-independent.
+ */
+export interface FeedbackItem {
+  key:
+    | 'disconnected'
+    | 'missingType'
+    | 'throughput'
+    | 'bottleneck'
+    | 'latency'
+    | 'availability'
+    | 'cost'
+    | 'allMet';
+  params: Record<string, string | number>;
 }
 
 export function gradeArchitecture(
@@ -180,42 +198,55 @@ function buildFeedback(args: {
   missingTypes: ComponentType[];
   connected: boolean;
   bottleneckNames: string[];
-}): string[] {
+}): FeedbackItem[] {
   const { target, metrics, targetChecks, missingTypes, connected, bottleneckNames } = args;
-  const out: string[] = [];
+  const out: FeedbackItem[] = [];
 
   if (!connected) {
-    out.push('🔌 Your topology is disconnected — wire a path from the edge to a database.');
+    out.push({ key: 'disconnected', params: {} });
     return out;
   }
   for (const type of missingTypes) {
-    out.push(`🧩 Required component missing: ${type}. Add one to the design.`);
+    out.push({ key: 'missingType', params: { type } });
   }
   if (!targetChecks.throughput) {
-    const where = bottleneckNames.length ? ` (bottleneck: ${bottleneckNames.join(', ')})` : '';
-    out.push(
-      `📈 Throughput ${metrics.maxThroughput.toLocaleString()} rps is below the ${target.minRps?.toLocaleString()} rps target. Scale out the bottleneck${where}.`,
-    );
+    out.push({
+      key: 'throughput',
+      params: { actual: metrics.maxThroughput, target: target.minRps ?? 0 },
+    });
+    if (bottleneckNames.length) {
+      out.push({ key: 'bottleneck', params: { names: bottleneckNames.join(', ') } });
+    }
   }
   if (!targetChecks.latency) {
-    out.push(
-      `🐢 p95 latency ${metrics.latencyP95} ms exceeds the ${target.maxLatencyP95} ms budget. Add caching or move data closer.`,
-    );
+    out.push({
+      key: 'latency',
+      params: { actual: metrics.latencyP95, budget: target.maxLatencyP95 ?? 0 },
+    });
   }
   if (!targetChecks.availability) {
-    out.push(
-      `⚠️ Availability ${(metrics.availability * 100).toFixed(2)}% is below the ${(target.minAvailability! * 100).toFixed(2)}% target. Add replicas for failover.`,
-    );
+    out.push({
+      key: 'availability',
+      params: {
+        actual: round2(metrics.availability * 100),
+        target: round2((target.minAvailability ?? 0) * 100),
+      },
+    });
   }
   if (!targetChecks.cost) {
-    out.push(
-      `💸 Cost $${metrics.costPerMonth.toLocaleString()}/mo exceeds the $${target.maxCostPerMonth?.toLocaleString()} budget. Remove over-provisioned nodes.`,
-    );
+    out.push({
+      key: 'cost',
+      params: { actual: metrics.costPerMonth, budget: target.maxCostPerMonth ?? 0 },
+    });
   }
   if (out.length === 0) {
-    out.push('✅ All targets met. Excellent design — the CTO approves.');
+    out.push({ key: 'allMet', params: {} });
   }
   return out;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 /** Human-readable component names for the bottleneck node ids (for feedback). */

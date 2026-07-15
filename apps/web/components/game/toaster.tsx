@@ -1,9 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useGameStore } from '@/lib/store/game-store';
 import { cn } from '@/lib/utils';
 import { Sparkles, Snowflake } from 'lucide-react';
+
+type Notice = {
+  kind: 'badge' | 'act' | 'freeze';
+  messageKey: string;
+  params: Record<string, string | number>;
+};
 
 /**
  * Surfaces reward feedback the game otherwise swallows: the XP gained on each
@@ -12,19 +19,20 @@ import { Sparkles, Snowflake } from 'lucide-react';
  * review) still re-trigger the animation.
  */
 export function Toaster() {
+  const t = useTranslations();
   const lastXpGain = useGameStore((s) => s.lastXpGain);
   const lastNotice = useGameStore((s) => s.lastNotice);
   const seq = useGameStore((s) => s.lastActionSeq);
 
   const [xp, setXp] = useState<number | null>(null);
-  const [notice, setNotice] = useState<{ kind: 'badge' | 'act' | 'freeze'; text: string } | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   useEffect(() => {
     if (seq === 0) return;
     if (lastXpGain && lastXpGain > 0) {
       setXp(lastXpGain);
-      const t = setTimeout(() => setXp(null), 2500);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setXp(null), 2500);
+      return () => clearTimeout(timer);
     }
   }, [seq, lastXpGain]);
 
@@ -32,16 +40,26 @@ export function Toaster() {
     if (seq === 0) return;
     if (lastNotice) {
       setNotice(lastNotice);
-      const t = setTimeout(() => setNotice(null), 3800);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setNotice(null), 3800);
+      return () => clearTimeout(timer);
     }
   }, [seq, lastNotice]);
 
   if (xp === null && notice === null) return null;
 
+  // Resolve raw params (e.g. career act id) into localised display values.
+  const noticeText = notice
+    ? t(notice.messageKey, {
+        ...notice.params,
+        ...(typeof notice.params.act === 'string'
+          ? { act: t(`acts.${notice.params.act}`) }
+          : {}),
+      })
+    : null;
+
   return (
     <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
-      {notice && (
+      {noticeText && notice && (
         <div
           className={cn(
             'flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-xl',
@@ -55,7 +73,7 @@ export function Toaster() {
           ) : (
             <Snowflake className="h-4 w-4 shrink-0" />
           )}
-          {notice.text}
+          {noticeText}
         </div>
       )}
       {xp !== null && (

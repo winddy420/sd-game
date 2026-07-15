@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { ReviewCard } from '@sd-game/game-engine';
-import type { Topology } from '@sd-game/content';
+import type { Topology, Locale } from '@sd-game/content';
 
 /** Persisted player progress — the heart of the offline-first save. */
 export interface PlayerState {
@@ -24,6 +24,8 @@ export interface PlayerState {
   };
   lastPlayedAt: number | null;
   createdAt: number;
+  /** UI/content language preference ('en' | 'th'). */
+  locale: Locale;
 }
 
 export const DEFAULT_PLAYER: PlayerState = {
@@ -39,6 +41,7 @@ export const DEFAULT_PLAYER: PlayerState = {
   streak: { current: 0, longest: 0, lastActiveDay: null, freezes: 1 },
   lastPlayedAt: null,
   createdAt: Date.now(),
+  locale: 'en',
 };
 
 class SdGameDB extends Dexie {
@@ -59,13 +62,13 @@ class SdGameDB extends Dexie {
 // Guard against SSR — Dexie touches indexedDB on construction.
 export const db = typeof window !== 'undefined' ? new SdGameDB() : (null as unknown as SdGameDB);
 
-export async function loadPlayer(): Promise<PlayerState> {
-  if (!db) return DEFAULT_PLAYER;
+export async function loadPlayer(): Promise<{ player: PlayerState; existed: boolean }> {
+  if (!db) return { player: DEFAULT_PLAYER, existed: false };
   const existing = await db.progress.get('main');
-  if (!existing) return DEFAULT_PLAYER;
-  // Shallow-merge over defaults so newly-added fields (e.g. architectureLatencies)
-  // backfill gracefully for saves created before they existed.
-  return { ...DEFAULT_PLAYER, ...existing };
+  if (!existing) return { player: DEFAULT_PLAYER, existed: false };
+  // Shallow-merge over defaults so newly-added fields (e.g. architectureLatencies,
+  // locale) backfill gracefully for saves created before they existed.
+  return { player: { ...DEFAULT_PLAYER, ...existing }, existed: true };
 }
 
 export async function savePlayer(state: PlayerState): Promise<void> {

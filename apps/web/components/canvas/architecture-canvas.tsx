@@ -19,10 +19,17 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { COMPONENT_BY_ID, type ComponentDef, type Topology } from '@sd-game/content';
+import {
+  COMPONENT_BY_ID,
+  localizedComponent,
+  type ComponentDef,
+  type Topology,
+} from '@sd-game/content';
+import { useTranslations } from 'next-intl';
 import { ComponentNode } from './component-node';
 import { Trash2, Plus, Minus, Zap, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/primitives';
+import { useLocale } from '@/lib/store/game-store';
 import { cn } from '@/lib/utils';
 
 const nodeTypes: NodeTypes = { component: ComponentNode };
@@ -38,6 +45,8 @@ export interface ArchitectureCanvasProps {
 }
 
 function CanvasInner({ allowedComponents, onChange, initialTopology }: ArchitectureCanvasProps) {
+  const t = useTranslations('canvas');
+  const locale = useLocale();
   const { getNode } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -168,21 +177,23 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
     () =>
       allowedComponents
         .map((id) => COMPONENT_BY_ID[id])
-        .filter((d): d is ComponentDef => Boolean(d)),
-    [allowedComponents],
+        .filter((d): d is ComponentDef => Boolean(d))
+        .map((d) => localizedComponent(d, locale)),
+    [allowedComponents, locale],
   );
 
   const selectedNode = selectedId ? getNode(selectedId) : null;
-  const selectedDef = selectedNode
+  const selectedRaw = selectedNode
     ? COMPONENT_BY_ID[(selectedNode.data as { componentId: string }).componentId]
-    : null;
+    : undefined;
+  const selectedDef = selectedRaw ? localizedComponent(selectedRaw, locale) : null;
 
   return (
     <div className="grid min-w-0 gap-3 lg:grid-cols-[180px_1fr]">
       {/* Palette */}
       <div className="order-2 min-w-0 lg:order-1">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-          Components
+          {t('components')}
         </div>
         <div className="flex gap-2 overflow-x-auto lg:grid lg:grid-cols-1">
           {palette.map((def) => (
@@ -202,7 +213,7 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
         </div>
         {nodes.length > 0 && (
           <Button variant="ghost" size="sm" className="mt-3 w-full" onClick={clearAll}>
-            <Trash2 className="h-3.5 w-3.5" /> Clear canvas
+            <Trash2 className="h-3.5 w-3.5" /> {t('clearCanvas')}
           </Button>
         )}
       </div>
@@ -249,12 +260,12 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
           {/* Link-mode banner (tap-to-connect) */}
           {linkSourceId && (
             <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-accent/40 bg-accent/15 px-4 py-1.5 text-xs font-medium text-accent-soft backdrop-blur">
-              Tap a target node to connect ·{' '}
+              {t('tapTarget')} ·{' '}
               <button
                 onClick={() => setLinkSourceId(null)}
                 className="underline hover:text-white"
               >
-                cancel
+                {t('cancel')}
               </button>
             </div>
           )}
@@ -275,9 +286,9 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
                     ? 'bg-accent text-white'
                     : 'bg-white/5 text-accent-soft hover:bg-white/10',
                 )}
-                title="Tap-to-connect: choose this as the source, then tap a target"
+                title={t('connectHint')}
               >
-                <Link2 className="h-3.5 w-3.5" /> Connect
+                <Link2 className="h-3.5 w-3.5" /> {t('connect')}
               </button>
               <div className="flex items-center gap-1 rounded-lg bg-white/5 p-0.5">
                 <button
@@ -309,7 +320,7 @@ function CanvasInner({ allowedComponents, onChange, initialTopology }: Architect
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="flex flex-col items-center gap-2 text-gray-400">
                 <Zap className="h-6 w-6" />
-                <span className="text-sm">Tap a component to add it. Connect with drag, or tap a node → Connect → tap target.</span>
+                <span className="text-sm">{t('emptyHint')}</span>
               </div>
             </div>
           )}

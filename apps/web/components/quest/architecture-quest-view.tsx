@@ -1,13 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { ArchitectureQuest, Topology } from '@sd-game/content';
+import { localizedQuest } from '@sd-game/content';
 import type { ArchitectureResult } from '@sd-game/game-engine';
 import { simulate } from '@sd-game/game-engine';
 import { Card, Button } from '@/components/ui/primitives';
 import { ArchitectureCanvas } from '@/components/canvas/architecture-canvas';
 import { MetricsPanel } from '@/components/canvas/metrics-panel';
-import { useGameStore } from '@/lib/store/game-store';
+import { useGameStore, useLocale } from '@/lib/store/game-store';
 import { loadTopology } from '@/lib/db';
 import { Play, Trophy, RotateCcw } from 'lucide-react';
 
@@ -18,6 +20,11 @@ export function ArchitectureQuestView({
   quest: ArchitectureQuest;
   onDone: () => void;
 }) {
+  const t = useTranslations('quest.architecture');
+  const tRoot = useTranslations();
+  const locale = useLocale();
+  const q = localizedQuest(quest, locale) as ArchitectureQuest;
+
   const [topology, setTopology] = useState<Topology>({ nodes: [], edges: [] });
   const [result, setResult] = useState<ArchitectureResult | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -68,15 +75,15 @@ export function ArchitectureQuestView({
       {/* Brief */}
       <Card>
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent-soft">
-          Design Brief
+          {t('designBrief')}
         </div>
-        <p className="text-sm text-gray-200">{quest.brief}</p>
+        <p className="text-sm text-gray-200">{q.brief}</p>
         {quest.requiredComponentTypes && quest.requiredComponentTypes.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-gray-400">Required:</span>
-            {quest.requiredComponentTypes.map((t) => (
-              <span key={t} className="rounded-full bg-white/5 px-2 py-0.5 text-gray-300">
-                {t}
+            <span className="text-gray-400">{t('required')}</span>
+            {quest.requiredComponentTypes.map((ct) => (
+              <span key={ct} className="rounded-full bg-white/5 px-2 py-0.5 text-gray-300">
+                {tRoot(`componentTypes.${ct}` as 'cdn')}
               </span>
             ))}
           </div>
@@ -95,11 +102,11 @@ export function ArchitectureQuestView({
       {/* Actions */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs text-gray-400">
-          {topology.nodes.length} components · {topology.edges.length} connections
+          {t('compCount', { nodes: topology.nodes.length, edges: topology.edges.length })}
         </div>
         <Button size="lg" onClick={runSimulation} disabled={busy || topology.nodes.length === 0}>
           <Play className="h-4 w-4" />
-          {busy ? 'Simulating…' : 'Run Simulation'}
+          {busy ? t('simulating') : t('runSimulation')}
         </Button>
       </div>
 
@@ -109,8 +116,8 @@ export function ArchitectureQuestView({
       {/* Live preview hint while building */}
       {!result && preview && (
         <p className="text-center text-xs text-gray-400">
-          Live preview: {preview.connected ? 'path connected' : '⚠ not connected yet'} · ~
-          {preview.latencyP95}ms · {preview.costPerMonth}/mo
+          {preview.connected ? t('liveConnected') : t('liveDisconnected')} · ~{preview.latencyP95}
+          ms · {preview.costPerMonth}/mo
         </p>
       )}
 
@@ -121,11 +128,11 @@ export function ArchitectureQuestView({
             <div className="flex items-center gap-3">
               <Trophy className="h-8 w-8 text-emerald-400" />
               <div>
-                <h2 className="text-lg font-bold">Design approved! +{quest.xpReward} XP</h2>
-                <p className="text-sm text-gray-400">Grade {result?.grade} — the CTO is impressed.</p>
+                <h2 className="text-lg font-bold">{t('approvedXp', { xp: quest.xpReward })}</h2>
+                <p className="text-sm text-gray-400">{t('gradeCto', { grade: result?.grade })}</p>
               </div>
             </div>
-            <Button onClick={onDone}>Continue</Button>
+            <Button onClick={onDone}>{tRoot('quest.continue')}</Button>
           </div>
         </Card>
       )}
@@ -134,7 +141,7 @@ export function ArchitectureQuestView({
       {result && !passed && (
         <div className="flex justify-center">
           <Button variant="ghost" onClick={() => setResult(null)}>
-            <RotateCcw className="h-4 w-4" /> Revise design
+            <RotateCcw className="h-4 w-4" /> {t('revise')}
           </Button>
         </div>
       )}
