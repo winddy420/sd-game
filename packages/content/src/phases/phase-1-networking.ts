@@ -161,6 +161,54 @@ Speed of light + network hops mean a request to a far-away server is slow:
 | Internal perf | 🟡 | ✅ | 🟡 |
 `,
   },
+  {
+    id: 'c-networking-cli',
+    title: 'Networking CLI Tools',
+    summary: 'The terminal tools every engineer uses to debug connectivity: ping, dig, curl, traceroute.',
+    phaseId: 'phase-1',
+    prerequisites: ['c-dns', 'c-http-basics'],
+    body: `# Networking CLI Tools
+
+When something is wrong on the network, a handful of CLI tools tell you **where**. Each answers a different question.
+
+## ping — "Is it reachable?"
+\`\`\`bash
+ping api.example.com
+\`\`\`
+Sends ICMP echo requests and prints the round-trip time. **No replies** = the host is down or blocking ICMP. Always start here.
+
+## dig / nslookup — "What IP does this name resolve to?" (DNS)
+\`\`\`bash
+dig api.example.com        # shows the A record (domain -> IPv4)
+nslookup api.example.com   # friendlier alternative
+\`\`\`
+Read the **ANSWER SECTION**: it lists the IP address(es) the domain resolves to. If it comes back empty, DNS resolution is failing.
+
+## curl — "How does the server respond?" (HTTP)
+\`\`\`bash
+curl https://api.example.com          # GET, prints the body
+curl -I https://api.example.com       # HEAD request — headers & status only
+curl -sI https://api.example.com      # -s = silent (hide the progress bar)
+\`\`\`
+\`-I\` (capital i) / \`--head\` makes curl send a **HEAD** request and print only the status line + headers — perfect for a quick "is it up, what status?" check.
+
+## traceroute / mtr — "Where does the path break?"
+\`\`\`bash
+traceroute api.example.com   # each hop (router) + per-hop latency
+mtr api.example.com          # ping + traceroute combined, live
+\`\`\`
+Shows every router between you and the host. A hop that stops replying marks where packets die. (On Windows the tool is \`tracert\`.)
+
+> 💡 **Diagnostic order**: \`ping\` (reachability) → \`dig\` (DNS) → \`curl\` (HTTP) → \`traceroute\` (path). Narrow the failure one layer at a time.
+
+| Symptom | First tool |
+|---|---|
+| "Can't reach the host at all" | \`ping\` |
+| "Works by IP but not by name" | \`dig\` / \`nslookup\` |
+| "Resolves, but bad HTTP status" | \`curl -I\` |
+| "Reaches some hops, then dies" | \`traceroute\` |
+`,
+  },
 ];
 
 export const PHASE_1_QUESTS: Quest[] = [
@@ -414,16 +462,68 @@ export const PHASE_1_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: Networking CLI Tools ---- */
+  {
+    id: 'q-1-lesson-networking-cli',
+    type: 'lesson',
+    title: 'Networking CLI Tools',
+    phaseId: 'phase-1',
+    order: 6,
+    xpReward: 100,
+    conceptId: 'c-networking-cli',
+    prerequisites: ['q-1-lesson-dns'],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'You need to find the IP address behind api.example.com. Which command?',
+        options: ['ping api.example.com', 'dig api.example.com', 'curl api.example.com', 'traceroute api.example.com'],
+        correctIndex: 1,
+        explanation: '`dig` (or `nslookup`) queries DNS and returns the A record — the IP the domain resolves to.',
+      },
+      {
+        id: 'q2',
+        prompt: 'What does `curl -I https://api.example.com` do?',
+        options: [
+          'Downloads the response body to a file',
+          'Sends a HEAD request and prints only the status line + headers',
+          'Ignores TLS certificate errors',
+          'Traces the network path to the server',
+        ],
+        correctIndex: 1,
+        explanation: '`-I` (capital i) issues a HEAD request and shows headers/status only — a quick health check without the body.',
+      },
+      {
+        id: 'q3',
+        prompt: '`traceroute api.example.com` shows you…',
+        options: [
+          'The DNS records for the domain',
+          'Every router (hop) between you and the host, with per-hop latency',
+          'The HTTP response headers',
+          'The server CPU usage',
+        ],
+        correctIndex: 1,
+        explanation: 'traceroute lists each hop along the path; a hop that stops replying marks where packets are being dropped.',
+      },
+      {
+        id: 'q4',
+        prompt: 'A user reports "the site is totally unreachable". Which command do you run FIRST?',
+        options: ['curl -I', 'traceroute', 'ping', 'dig'],
+        correctIndex: 2,
+        explanation: 'Start with `ping` to test raw reachability and latency, then narrow down: dig → curl → traceroute.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: networking tools ---- */
   {
     id: 'q-1-command-tools',
     type: 'command',
     title: 'Networking CLI Lab',
     phaseId: 'phase-1',
-    order: 6,
+    order: 7,
     xpReward: 150,
     intro: 'You are on-call. Use the terminal to inspect the network.',
-    prerequisites: ['q-1-lesson-dns'],
+    prerequisites: ['q-1-lesson-networking-cli'],
     steps: [
       {
         prompt: 'Resolve the IP address of api.example.com using DNS lookup.',
@@ -433,7 +533,7 @@ export const PHASE_1_QUESTS: Quest[] = [
       },
       {
         prompt: 'Send an HTTP HEAD request to check if the server is up (use curl, silent, show headers only).',
-        acceptedPatterns: ['curl\\s+.*-I.*api\\.example\\.com', 'curl\\s+.*--head.*api\\.example\\.com', 'curl\\s+-sI\\s+api\\.example\\.com'],
+        acceptedPatterns: ['curl\\s+.*-I.*api\\.example\\.com', 'curl\\s+.*--head.*api\\.example\\.com', 'curl\\s+.*-sI.*api\\.example\\.com'],
         sampleAnswer: 'curl -I https://api.example.com',
         hint: '`-I` (capital i) fetches headers only.',
       },
@@ -452,7 +552,7 @@ export const PHASE_1_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Design a URL Shortener',
     phaseId: 'phase-1',
-    order: 7,
+    order: 8,
     xpReward: 300,
     brief:
       'ScaleUp Inc. needs a URL shortener. Build a path from the client to a database that can handle 1,000 reads/sec with p95 latency under 120 ms and 99.9% availability. Add a CDN at the edge and a load balancer in front of your app servers.',
@@ -474,7 +574,7 @@ export const PHASE_1_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Site Unreachable',
     phaseId: 'phase-1',
-    order: 8,
+    order: 9,
     xpReward: 200,
     failureDescription: 'At 14:03, all users report the site "won\'t load". Error rate is 100%.',
     symptoms: [
@@ -520,7 +620,7 @@ export const PHASE_1_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Production URL Shortener',
     phaseId: 'phase-1',
-    order: 9,
+    order: 10,
     xpReward: 500,
     brief:
       'You are now the lead. Design a URL shortener for ScaleUp that survives 5,000 reads/sec with p95 under 80 ms, 99.95% availability, under $3,000/month. Hint: cache reads aggressively — short URLs are read far more than they are created.',

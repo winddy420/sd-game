@@ -370,6 +370,61 @@ With \`object-src 'none'\` and \`script-src 'self'\`, an injected \`<script src=
 - **Assume breach** — log, alert, and have an incident plan.
 `,
   },
+  {
+    id: 'c-2-docker-basics',
+    title: 'Docker & Service Containers',
+    summary: 'Build and run containers with the Docker CLI: build, run, port mapping, logs.',
+    phaseId: 'phase-2',
+    prerequisites: ['c-2-rest-api'],
+    body: `# Docker & Service Containers
+
+A **container** is a runnable package: your app code plus its runtime, libraries, and config, all isolated from the host. The same image runs identically on your laptop and in production, which is why Docker is the standard way to package a backend service.
+
+## docker build — "make an image"
+\`\`\`bash
+docker build -t sdgame/api:v1 .
+\`\`\`
+Reads the \`Dockerfile\` in the build context and produces a named **image**. \`-t <tag>\` labels it (here \`sdgame/api:v1\`); the trailing \`.\` means "use the current directory as the build context, including its Dockerfile."
+
+## docker run — "start a container"
+\`\`\`bash
+docker run -d --name api -p 8080:3000 sdgame/api:v1
+\`\`\`
+Creates and starts a container from the image. The flags:
+- \`-d\` — **detached**: run in the background and return your shell prompt.
+- \`--name api\` — give the container a friendly name you can reuse in other commands.
+- \`-p 8080:3000\` — **port mapping** in \`host:container\` order: traffic on host port 8080 forwards into container port 3000.
+
+## docker ps — "what is running?"
+\`\`\`bash
+docker ps          # running containers only
+docker ps -a       # include stopped ones too
+\`\`\`
+Lists containers with their ID, image, status, and mapped ports. The quickest way to confirm a container is up.
+
+## docker logs — "what is it printing?"
+\`\`\`bash
+docker logs -f api
+\`\`\`
+Prints the container stdout/stderr. \`-f\` **follows** (streams) new output live, like \`tail -f\` — essential when a container fails to start.
+
+## curl -I — "does it answer?"
+\`\`\`bash
+curl -I http://localhost:8080/health
+\`\`\`
+\`-I\` (capital i) sends a **HEAD** request and prints only the status line + headers — the fastest health check once you have mapped a host port to the container.
+
+> 💡 **Inner loop**: \`docker build\` → \`docker run -d -p\` → \`docker ps\` to confirm it started → \`curl -I\` to verify it answers → \`docker logs -f\` to debug if it does not.
+
+| Goal | Command |
+|---|---|
+| Build an image | \`docker build -t <tag> .\` |
+| Run detached with ports | \`docker run -d -p <host>:<container> <image>\` |
+| List running containers | \`docker ps\` |
+| Tail container output | \`docker logs -f <name>\` |
+| Quick HTTP health check | \`curl -I http://localhost:<port>\` |
+`,
+  },
 ];
 
 export const PHASE_2_QUESTS: Quest[] = [
@@ -633,17 +688,62 @@ export const PHASE_2_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: Docker basics ---- */
+  {
+    id: 'q-2-lesson-docker-basics',
+    type: 'lesson',
+    title: 'Docker & Service Containers',
+    phaseId: 'phase-2',
+    order: 5,
+    xpReward: 100,
+    conceptId: 'c-2-docker-basics',
+    prerequisites: ['q-2-lesson-auth'],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'In the command docker run -p 8080:8080 api, what does -p 8080:8080 do?',
+        options: [
+          'Maps container port 8080 onto host port 8080',
+          'Maps host port 8080 onto container port 8080',
+          'Limits the container to 8080 requests per second',
+          'Sets the container hostname to port 8080',
+        ],
+        correctIndex: 1,
+        explanation: 'The -p flag takes host:container. The first port is on your machine; the second is inside the container, so host 8080 forwards to container 8080.',
+      },
+      {
+        id: 'q2',
+        prompt: 'What does the -d flag do in docker run -d?',
+        options: [
+          'Deletes the container after it exits',
+          'Runs the container in the background (detached)',
+          'Disables networking for the container',
+          'Builds the image before running it',
+        ],
+        correctIndex: 1,
+        explanation: '-d means detached: the container runs in the background and your shell prompt returns immediately, instead of streaming logs to the terminal.',
+      },
+      {
+        id: 'q3',
+        prompt: 'Which command lists the containers currently running on this machine?',
+        options: ['docker images', 'docker ps', 'docker run', 'docker build'],
+        correctIndex: 1,
+        explanation: 'docker ps prints the running containers with their ID, image, status, and mapped ports. Add -a to include stopped containers.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: build & run a service ---- */
   {
     id: 'q-2-command-docker-build',
     type: 'command',
     title: 'Build & Run a Service (Docker)',
     phaseId: 'phase-2',
-    order: 5,
+    order: 6,
     xpReward: 150,
     intro:
       'A teammate wrote an Express API but left no run instructions. Use Docker to build the image, run it locally, and confirm it answers.',
-    prerequisites: ['q-2-lesson-auth'],
+    prerequisites: ['q-2-lesson-docker-basics'],
     steps: [
       {
         prompt: 'Build a Docker image from the Dockerfile in the current directory, tagging it sdgame/api:v1.',
@@ -687,7 +787,7 @@ export const PHASE_2_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Design a Rate-Limited Public API',
     phaseId: 'phase-2',
-    order: 6,
+    order: 7,
     xpReward: 250,
     brief:
       'ScaleUp is opening its Orders API to external clients. Design a path from the internet through an API Gateway (which handles auth + rate limiting) to your app servers and database. Target: 2,000 rps with 80% reads, p95 latency ≤ 150 ms, 99.9% availability, under $2,500/month. Hint: the gateway absorbs the rate-limiting work; cache reads to keep the DB calm.',
@@ -718,7 +818,7 @@ export const PHASE_2_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Token Leak Abuse',
     phaseId: 'phase-2',
-    order: 7,
+    order: 8,
     xpReward: 200,
     failureDescription:
       'Friday 02:14. On-call is paged: billing reports a 50x spike in "password-reset email" sends in 10 minutes, threatening to exhaust the email provider quota and bankrupt the reset flow.',
@@ -773,7 +873,7 @@ export const PHASE_2_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Design an Authentication Service',
     phaseId: 'phase-2',
-    order: 8,
+    order: 9,
     xpReward: 500,
     brief:
       'You are now the lead. Design ScaleUp\'s Authentication Service: it issues and validates tokens, manages sessions, and serves login/refresh/logout for the whole product. Target: 3,000 rps (90% reads — token validation dominates), p95 ≤ 120 ms, 99.95% availability, under $3,500/month. Required: an API Gateway fronting your app servers, a cache for fast token/session lookups, and a SQL DB as the system of record for credentials. Hint: validation must NEVER hit the DB on the hot path — cache aggressively and keep tokens short-lived.',

@@ -67,6 +67,19 @@ EXPLAIN SELECT * FROM orders WHERE user_id = 42;
 - \`Bitmap Heap Scan\` → partial, used when matching many rows
 
 Always \`EXPLAIN\` a slow query **before** guessing at the fix.
+
+## Connecting with the psql CLI
+
+Open a Postgres session against a specific database from your shell:
+\`\`\`bash
+psql -d orders        # -d picks the database to connect to
+\`\`\`
+Already inside the \`psql\` prompt, switch databases with a backslash **meta-command** (these start with \`\\\`):
+\`\`\`
+\\c orders            # shorthand
+\\connect orders      # long form
+\`\`\`
+Other handy meta-commands: \`\\dt\` lists tables, \`\\d orders\` describes the orders table, \`\\q\` quits.
 `,
   },
   {

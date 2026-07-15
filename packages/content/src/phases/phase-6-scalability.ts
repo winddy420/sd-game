@@ -190,6 +190,56 @@ The method:
 The end goal isn't just surviving failure — it's **improving** under it. Each chaos experiment you survive makes the system stronger, because you fixed a real crack instead of a hypothetical one.
 `,
   },
+
+  /* ---- 5. Kubernetes Scaling CLI ---- */
+  {
+    id: 'c-6-kubectl-autoscaling',
+    title: 'Kubernetes Scaling CLI',
+    summary: 'Scale Kubernetes workloads with kubectl: manual scale and the Horizontal Pod Autoscaler.',
+    phaseId: 'phase-6',
+    prerequisites: ['c-6-autoscaling'],
+    body: `# Kubernetes Scaling CLI
+
+Kubernetes runs your workloads as **Deployments**. You scale a Deployment with two distinct kubectl commands: a one-off manual count, and a dynamic Horizontal Pod Autoscaler (HPA).
+
+## See the current replica count
+\`\`\`bash
+kubectl get deployment api
+\`\`\`
+Lists the Deployment: how many replicas are **desired**, how many are **ready**, and its age. Always check this before scaling.
+
+## kubectl scale — manual, fixed replica count
+\`\`\`bash
+kubectl scale deployment api --replicas=6
+\`\`\`
+Sets the replica count to exactly 6, **immediately**. It is a one-off, manual change — the count stays at 6 regardless of CPU or traffic. Use it when you know the number you want: a planned capacity bump, or extra capacity for a known event.
+
+## kubectl autoscale — dynamic, automatic (Horizontal Pod Autoscaler)
+\`\`\`bash
+kubectl autoscale deployment api --cpu-percent=70 --min=3 --max=10
+\`\`\`
+Creates a **HorizontalPodAutoscaler** (HPA): a controller that continuously adjusts the replica count to keep average CPU near 70%, never dropping below 3 or rising above 10. The cluster adds pods when CPU climbs and removes them when it falls — automatically.
+
+- \`--cpu-percent=70\` — the target CPU the autoscaler aims for (scale out above it, scale in below it).
+- \`--min=3\` — the floor: never fewer than 3 pods (a warm baseline).
+- \`--max=10\` — the ceiling: never more than 10 pods (a cost and safety cap).
+
+## Inspect the autoscaler
+\`\`\`bash
+kubectl get hpa
+\`\`\`
+Shows each HPA, its target CPU, the current CPU, and the **min–max** range. Use it to confirm the autoscaler exists and is behaving.
+
+> 💡 **scale vs autoscale**: \`kubectl scale\` is a *fixed, manual* count — it runs once and stops. \`kubectl autoscale\` creates an *ongoing controller* that adds and removes pods for you based on a metric. In production, prefer the HPA so capacity follows demand automatically.
+
+| Command | Effect | Manual or automatic? |
+|---|---|---|
+| \`kubectl get deployment <name>\` | Show current replicas | Inspect (read-only) |
+| \`kubectl scale deployment <name> --replicas=N\` | Set a fixed count, once | Manual |
+| \`kubectl autoscale deployment <name> --cpu-percent=T --min=L --max=H\` | Create an HPA | Automatic |
+| \`kubectl get hpa\` | Inspect the autoscaler | Inspect (read-only) |
+`,
+  },
 ];
 
 export const PHASE_6_QUESTS: Quest[] = [
@@ -456,17 +506,70 @@ export const PHASE_6_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 5. Command Lab: autoscaling CLI ---- */
+  /* ---- Lesson: kubectl scaling ---- */
+  {
+    id: 'q-6-lesson-kubectl-autoscaling',
+    type: 'lesson',
+    title: 'Kubernetes Scaling CLI',
+    phaseId: 'phase-6',
+    order: 5,
+    xpReward: 100,
+    conceptId: 'c-6-kubectl-autoscaling',
+    prerequisites: ['q-6-lesson-autoscaling'],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'What is the difference between `kubectl scale` and `kubectl autoscale`?',
+        options: [
+          '`kubectl scale` sets a fixed manual replica count once; `kubectl autoscale` creates an HPA that adjusts pods automatically based on a metric',
+          'They are identical commands with different names',
+          '`kubectl scale` creates an HPA; `kubectl autoscale` sets a fixed count',
+          '`kubectl scale` only works on databases',
+        ],
+        correctIndex: 0,
+        explanation:
+          '`kubectl scale` is a one-off manual change that pins the count to N. `kubectl autoscale` creates a Horizontal Pod Autoscaler that adds and removes pods dynamically to hold a target metric like CPU.',
+      },
+      {
+        id: 'q2',
+        prompt: 'In `kubectl autoscale deployment api --min=3 --max=10`, what do `--min` and `--max` control?',
+        options: [
+          'The minimum and maximum CPU percentage the pods may use',
+          'The floor and ceiling on the replica count — never fewer than 3 or more than 10 pods',
+          'The number of clusters to run',
+          'The warm-up and cooldown periods in seconds',
+        ],
+        correctIndex: 1,
+        explanation:
+          '`--min` and `--max` bound the pod count. The autoscaler may scale down to 3 (a warm baseline) but never below, and up to 10 (a cost and safety cap) but never above.',
+      },
+      {
+        id: 'q3',
+        prompt: 'What does `--cpu-percent=70` mean in an HPA?',
+        options: [
+          'Pods are limited to 70 percent CPU and are throttled above that',
+          'The autoscaler keeps average CPU around 70 percent, adding pods when it rises and removing pods when it falls',
+          'Exactly 70 pods must run at all times',
+          'CPU usage is logged every 70 seconds',
+        ],
+        correctIndex: 1,
+        explanation:
+          'The autoscaler targets an average CPU of 70 percent. Above that target it scales out to spread the load; below it, it scales in to save capacity. It is a target-tracking policy, not a hard cap on a single pod.',
+      },
+    ],
+  },
+
+  /* ---- 6. Command Lab: autoscaling CLI ---- */
   {
     id: 'q-6-command-autoscale',
     type: 'command',
     title: 'Auto-Scaling CLI Lab',
     phaseId: 'phase-6',
-    order: 5,
+    order: 6,
     xpReward: 150,
     intro:
       'Traffic is climbing. Use the terminal to inspect your deployment and configure horizontal auto-scaling for the `api` service.',
-    prerequisites: ['q-6-lesson-resilience'],
+    prerequisites: ['q-6-lesson-kubectl-autoscaling'],
     steps: [
       {
         prompt: 'Inspect the current replica count and status of the `api` deployment.',
@@ -504,13 +607,13 @@ export const PHASE_6_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 6. Architecture: scale horizontally with replicas + cache + primary/replica DB ---- */
+  /* ---- 7. Architecture: scale horizontally with replicas + cache + primary/replica DB ---- */
   {
     id: 'q-6-arch-replicas',
     type: 'architecture',
     title: 'Scale Out the API',
     phaseId: 'phase-6',
-    order: 6,
+    order: 7,
     xpReward: 250,
     brief:
       'ScaleUp Inc. just landed a big contract — the API now needs to handle 15,000 reads/sec at p95 under 90 ms, 99.99% availability, under $4,000/month. The traffic is 90% reads, so cache aggressively and read from replicas; keep writes on the primary. Add enough app replicas behind the load balancer to clear the throughput bar.',
@@ -526,13 +629,13 @@ export const PHASE_6_QUESTS: Quest[] = [
     prerequisites: ['q-6-command-autoscale'],
   },
 
-  /* ---- 7. Incident: cascading failure ---- */
+  /* ---- 8. Incident: cascading failure ---- */
   {
     id: 'q-6-incident-cascade',
     type: 'incident',
     title: 'Incident: The Slow Death',
     phaseId: 'phase-6',
-    order: 7,
+    order: 8,
     xpReward: 200,
     failureDescription:
       'At 03:11, on-call gets paged: the API error rate has climbed from 0.1% to 38% in six minutes. Latency is climbing. Users are seeing 504s. The dashboard shows DB query time jumped ~9× (10ms → 90ms), then app server memory spiked, then health checks started failing.',
@@ -614,13 +717,13 @@ export const PHASE_6_QUESTS: Quest[] = [
     ],
   },
 
-  /* ---- 8. Capstone: streaming service ---- */
+  /* ---- 9. Capstone: streaming service ---- */
   {
     id: 'q-6-capstone',
     type: 'architecture',
     title: 'Capstone: Design a Streaming Service',
     phaseId: 'phase-6',
-    order: 8,
+    order: 9,
     xpReward: 500,
     brief:
       'You are the lead architect for "Streamly", a Netflix-like video streaming service. Catalog browsing and video metadata are 98% reads and must feel instant worldwide — edge caching is mandatory. Design a path that survives 25,000 req/sec at p95 under 70 ms, 99.99% availability, under $5,000/month. Use a CDN at the edge, a load balancer in front of stateless app servers, a cache for hot metadata, and a NoSQL store for the catalog. Kafka is available if you want to ingest watch events asynchronously.',

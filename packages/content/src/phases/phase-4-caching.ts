@@ -215,6 +215,58 @@ Each component lists a \`costPerMonth\` per instance (replica). Total monthly co
 > ⚠️ **Rule of thumb**: the cheapest design that meets all SLOs wins. Remove nodes that aren't pulling their weight, and never pay for a "9" the business didn't ask for.
 `,
   },
+  {
+    id: 'c-4-redis-cli',
+    title: 'Redis CLI Basics',
+    summary:
+      'Talk to Redis from the command line: set keys with TTL, read them, and inspect server stats.',
+    phaseId: 'phase-4',
+    prerequisites: ['c-4-invalidation'],
+    body: `# Redis CLI Basics
+
+Redis speaks a simple text protocol, and the \`redis-cli\` tool lets you drive it straight from a terminal. Launch it with no arguments to drop into the interactive REPL:
+
+\`\`\`bash
+redis-cli            # opens the 127.0.0.1:6379 prompt
+redis-cli -h host -p 6380   # point at a different Redis
+\`\`\`
+
+You can also run a single command and exit (\`redis-cli GET user:42\`). In the lab you will type commands into a simulated REPL.
+
+## Writing keys — SET
+\`\`\`bash
+SET user:42 'ada'                 # store a value (no expiry)
+SET user:42 'ada' EX 300          # same, but expire in 300 seconds (5 min)
+\`\`\`
+\`SET key value\` writes a key. Add \`EX <seconds>\` and Redis auto-deletes the key after that TTL — this is exactly the **time-to-live** concept from cache invalidation, applied at the key level. (\`PX\` does the same in milliseconds.) Keys are commonly namespaced with a colon: \`user:42\`, \`product:7\`, \`session:abc\` so related keys group cleanly and never collide.
+
+## Reading keys — GET
+\`\`\`bash
+GET user:42        # returns the value, or (nil) on a miss
+DEL user:42        # delete the key (manual invalidation)
+TTL user:42        # seconds until expiry (-1 = no TTL, -2 = key does not exist)
+\`\`\`
+\`GET key\` is your cache hit check: it returns the stored value, or \`(nil)\` if the key is missing or expired. \`TTL\` tells you how much life a key has left.
+
+## Inspecting the server — INFO
+\`\`\`bash
+INFO               # everything
+INFO stats         # counters: keyspace_hits, keyspace_misses, ops/sec
+INFO server        # version, uptime, config
+INFO keyspace      # per-DB key counts and expiry
+\`\`\`
+\`INFO [section]\` returns counters and config about the running server. **\`INFO stats\`** is the one you want for hit-ratio work — it exposes \`keyspace_hits\` and \`keyspace_misses\`, the two numbers behind your cache hit ratio.
+
+> 💡 **Lab flow**: \`SET ... EX 300\` (write with TTL) → \`GET\` (confirm the hit) → \`INFO stats\` (watch the hit counter climb).
+
+| Task | Command |
+|---|---|
+| Cache a value for 5 minutes | \`SET key value EX 300\` |
+| Read it back | \`GET key\` |
+| Check remaining TTL | \`TTL key\` |
+| Read hit/miss counters | \`INFO stats\` |
+`,
+  },
 ];
 
 export const PHASE_4_QUESTS: Quest[] = [
@@ -585,17 +637,62 @@ export const PHASE_4_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: Redis CLI ---- */
+  {
+    id: 'q-4-lesson-redis-cli',
+    type: 'lesson',
+    title: 'Redis CLI Basics',
+    phaseId: 'phase-4',
+    order: 7,
+    xpReward: 100,
+    conceptId: 'c-4-redis-cli',
+    prerequisites: ['q-4-lesson-invalidation'],
+    questions: [
+      {
+        id: 'q1',
+        prompt:
+          'You run `SET user:42 \'ada\' EX 300`. What does the `EX 300` part do?',
+        options: [
+          'Sets the key size to 300 bytes',
+          'Makes the key expire after 300 seconds (a 5-minute TTL)',
+          'Writes the key 300 times for durability',
+          'Limits the value to 300 characters',
+        ],
+        correctIndex: 1,
+        explanation:
+          'EX sets a time-to-live in seconds. After 300 seconds (5 minutes) Redis deletes the key automatically — the same TTL concept from cache invalidation, applied per key.',
+      },
+      {
+        id: 'q2',
+        prompt: 'Which command reads back the value stored at a key (and returns nil on a miss)?',
+        options: ['FETCH user:42', 'READ user:42', 'GET user:42', 'SELECT user:42'],
+        correctIndex: 2,
+        explanation:
+          'GET key returns the stored value, or (nil) if the key is missing or expired. It is the basic cache-hit check.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'Which command returns server counters such as keyspace_hits and keyspace_misses (your cache hit ratio)?',
+        options: ['STATS', 'METRICS', 'INFO stats', 'DEBUG counts'],
+        correctIndex: 2,
+        explanation:
+          'INFO [section] returns counters and config about the running server. INFO stats exposes keyspace_hits and keyspace_misses — the two numbers behind your hit ratio.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: redis-cli basics ---- */
   {
     id: 'q-4-command-redis',
     type: 'command',
     title: 'Redis CLI Lab',
     phaseId: 'phase-4',
-    order: 7,
+    order: 8,
     xpReward: 150,
     intro:
       'You have a fresh Redis. Cache a hot user profile with a TTL, read it back, and inspect hit-rate stats.',
-    prerequisites: ['q-4-lesson-invalidation'],
+    prerequisites: ['q-4-lesson-redis-cli'],
     steps: [
       {
         prompt:
@@ -630,7 +727,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Add Cache to a Slow Read Path',
     phaseId: 'phase-4',
-    order: 8,
+    order: 9,
     xpReward: 250,
     brief:
       'ScaleUp\'s product-detail page is served straight from Postgres and p95 is over 200 ms. Reads dominate the traffic (95% reads), so the cheapest, fastest fix is to put a cache in front of the DB. Add Redis to the path so hot reads stay under 60 ms p95 at 5,000 rps, 99.9% availability, under $2,500/month.',
@@ -652,7 +749,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Cache Stampede',
     phaseId: 'phase-4',
-    order: 9,
+    order: 10,
     xpReward: 250,
     failureDescription:
       'At 09:00, right after the homepage banner swapped, the homepage\'s "featured product" cache key expired. Database CPU jumped to 100% and p95 latency went from 40 ms to 1,800 ms. The app is up, the cache is up, the DB is up — but it is drowning.',
@@ -704,7 +801,7 @@ export const PHASE_4_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Optimize a Slow API',
     phaseId: 'phase-4',
-    order: 10,
+    order: 11,
     xpReward: 500,
     brief:
       'You are now the lead. The product API runs at p95 = 800 ms because every read hits the database and assets are served from the origin. Reads are 97% of traffic. Drive p95 under 80 ms at 10,000 rps, 99.95% availability, under $3,000/month. You must use an app server, a SQL database, a cache, and a CDN. Hint: serve static/cacheable responses from the CDN edge, cache hot dynamic reads in Redis, and keep the DB for writes and cold misses.',

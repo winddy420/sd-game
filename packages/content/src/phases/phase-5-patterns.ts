@@ -221,6 +221,46 @@ For multi-step workflows that need some consistency, use a **saga** — a sequen
 > Idempotent consumers are **mandatory**. Brokers deliver at-least-once, so the same event *will* arrive twice at some point. Dedupe on the event id or natural key.
 `,
   },
+  {
+    id: 'c-5-kafka-cli',
+    title: 'Kafka CLI Basics',
+    summary:
+      'Manage Kafka from the CLI: create topics, produce events, and consume them.',
+    phaseId: 'phase-5',
+    prerequisites: ['c-5-message-queues'],
+    body: `# Kafka CLI Basics
+
+Kafka ships with CLI tools for managing topics and moving messages in and out. Every tool takes \`--bootstrap-server\` to point at a broker; in local dev that is typically \`localhost:9092\`.
+
+## kafka-topics — create and inspect topics
+\`\`\`bash
+kafka-topics --bootstrap-server localhost:9092 --create --topic orders --partitions 3 --replication-factor 1
+\`\`\`
+- **--partitions** splits the topic into N parallel logs. More partitions means more consumers can read at once (higher throughput).
+- **--replication-factor** sets how many copies of the topic the cluster keeps. More copies means a broker can fail with no data loss (durability).
+
+List existing topics and inspect one:
+\`\`\`bash
+kafka-topics --bootstrap-server localhost:9092 --list
+kafka-topics --bootstrap-server localhost:9092 --describe --topic orders
+\`\`\`
+
+## kafka-console-producer — write events to a topic
+\`\`\`bash
+kafka-console-producer --bootstrap-server localhost:9092 --topic orders
+\`\`\`
+Opens an interactive prompt — type one message per line, then press **Ctrl-D** to finish. You can also pipe a message in: \`echo '{"order_id": 42}' | kafka-console-producer --bootstrap-server localhost:9092 --topic orders\`.
+
+## kafka-console-consumer — read events from a topic
+\`\`\`bash
+kafka-console-consumer --bootstrap-server localhost:9092 --topic orders --from-beginning
+\`\`\`
+- **--from-beginning** starts at the earliest offset and replays every message the topic still retains — the whole history.
+- Omit it and the consumer only sees messages produced from the moment it connects onward (new messages only).
+
+> The \`<broker>\` argument is typically \`host:9092\`. Kafka retains messages for days/weeks by config, which is exactly why \`--from-beginning\` can replay history at all.
+`,
+  },
 ];
 
 export const PHASE_5_QUESTS: Quest[] = [
@@ -478,17 +518,65 @@ export const PHASE_5_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: Kafka CLI ---- */
+  {
+    id: 'q-5-lesson-kafka-cli',
+    type: 'lesson',
+    title: 'Kafka CLI Basics',
+    phaseId: 'phase-5',
+    order: 5,
+    xpReward: 100,
+    conceptId: 'c-5-kafka-cli',
+    prerequisites: ['q-5-lesson-queue'],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'Which flag sets the number of copies Kafka keeps of a topic (its durability)?',
+        options: ['--partitions', '--replication-factor', '--bootstrap-server', '--topic'],
+        correctIndex: 1,
+        explanation:
+          '--replication-factor controls how many replicas of the topic exist. More copies means a broker can fail with no data loss. --partitions controls parallelism, not copies.',
+      },
+      {
+        id: 'q2',
+        prompt: 'What does the --from-beginning flag do on kafka-console-consumer?',
+        options: [
+          'It consumes only messages produced after the consumer connected',
+          'It replays every message in the topic from the earliest offset',
+          'It deletes messages after reading them',
+          'It doubles the consumer throughput',
+        ],
+        correctIndex: 1,
+        explanation:
+          '--from-beginning resets the consumer offset to the start, so it reads the full retained history. Without it the consumer only sees new messages produced from connect time onward.',
+      },
+      {
+        id: 'q3',
+        prompt: 'Which command creates a new Kafka topic?',
+        options: [
+          'kafka-console-producer --create',
+          'kafka-topics --create',
+          'kafka-consumer-groups --new',
+          'kafka-broker --init',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Topics are managed with kafka-topics. Pass --create along with --topic, --partitions, --replication-factor, and --bootstrap-server to create one.',
+      },
+    ],
+  },
+
   /* ---- Command Lab: Kafka CLI ---- */
   {
     id: 'q-5-command-kafka',
     type: 'command',
     title: 'Kafka CLI Lab',
     phaseId: 'phase-5',
-    order: 5,
+    order: 6,
     xpReward: 150,
     intro:
       'You are wiring up an event-driven orders pipeline. Use the Kafka CLI tools to create a topic, publish an event, and read it back from the broker at localhost:9092.',
-    prerequisites: ['q-5-lesson-queue'],
+    prerequisites: ['q-5-lesson-kafka-cli'],
     steps: [
       {
         prompt:
@@ -535,7 +623,7 @@ export const PHASE_5_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Decouple a Write-Heavy Flow',
     phaseId: 'phase-5',
-    order: 6,
+    order: 7,
     xpReward: 250,
     brief:
       "ScaleUp's order-placement API is buckling under flash-sale traffic. Writes (placing orders) are slow, and the user waits for them to complete. Decouple the write path: the app accepts the request, publishes an event to Kafka, and returns immediately (202 Accepted) — a worker drains the queue and persists orders to Postgres. Put Redis in front of the DB to cache the read-heavy lookups. Hit p95 ≤ 100 ms, ≥ 6,000 rps, ≥ 99.9% availability, ≤ $3,500/month.",
@@ -557,7 +645,7 @@ export const PHASE_5_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Order Confirmations Delayed 10+ Minutes',
     phaseId: 'phase-5',
-    order: 7,
+    order: 8,
     xpReward: 250,
     failureDescription:
       "At 09:14 (flash-sale launch), order placement still works — API p95 latency is a healthy 60 ms — but customers report order-confirmation emails arriving 10–15 minutes late. The email service itself is up and responds in 30 ms when called directly.",
@@ -608,7 +696,7 @@ export const PHASE_5_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: E-commerce Checkout',
     phaseId: 'phase-5',
-    order: 8,
+    order: 9,
     xpReward: 500,
     brief:
       "You are now the lead architect. Design ScaleUp's checkout system for a flash-sale launch: 8,000 rps with 70% reads (cart/price/product lookups), p95 ≤ 120 ms, ≥ 99.95% availability, ≤ $4,500/month. The checkout flow must (1) place orders as writes without losing them if a downstream is slow — decouple writes with a queue, (2) serve cart & product reads from a cache, and (3) persist the source of truth in Postgres. Use a CDN at the edge and a load balancer in front of the app tier for availability. Plan for redundancy — 99.95% means no single point of failure.",

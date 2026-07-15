@@ -261,6 +261,52 @@ A modern global system often looks like:
 You trade per-query simplicity for global latency, availability, and scale.
 `,
   },
+
+  /* ---- 5. Disaster Recovery Ops CLI ---- */
+  {
+    id: 'c-8-dr-ops',
+    title: 'Disaster Recovery Ops CLI',
+    summary:
+      'Execute a regional failover from the CLI: drain nodes, flip DNS, and verify health.',
+    phaseId: 'phase-8',
+    prerequisites: ['c-8-multiregion'],
+    body: `# Disaster Recovery Ops CLI
+
+When a region degrades, the runbook is: **drain the affected nodes, flip DNS to the standby region, and verify the new target is healthy**. These are the three CLI primitives every on-call engineer must know. They are how you turn the multi-region architecture (and its RTO/RPO targets) into actual operator action.
+
+## 1. kubectl drain — evacuate a node for maintenance
+\`\`\`bash
+kubectl drain ip-10-0-3-42.ec2.internal --ignore-daemonsets --delete-emptydir-data
+\`\`\`
+\`kubectl drain <node>\` evicts all pods from the node and marks it unschedulable, so it can be safely taken down, patched, or repaired. The flags matter:
+- \`--ignore-daemonsets\` leaves DaemonSet pods in place (a DaemonSet must run on every node, so evicting it is pointless and would just re-schedule it).
+- \`--delete-emptydir-data\` deletes pods that use \`emptyDir\` volumes; without it drain would block on those pods because emptyDir data is ephemeral and cannot be moved.
+
+After maintenance, bring the node back with:
+\`\`\`bash
+kubectl uncordon ip-10-0-3-42.ec2.internal
+\`\`\`
+\`uncordon\` marks the node schedulable again. It does NOT move pods back — new pods land there as the scheduler rebalances over time.
+
+## 2. aws route53 change-resource-record-sets — flip DNS
+\`\`\`bash
+aws route53 change-resource-record-sets --hosted-zone-id Z2MOCKHOSTEDZONE --change-batch file://failover-to-ap-southeast-1.json
+\`\`\`
+This is the primitive that shifts live traffic from one region to another. The \`--change-batch\` file is a JSON document describing which record to delete (the old/primary region) and which to create (the standby region). Route 53 applies the change atomically; DNS resolver caches then converge over the course of your TTL.
+
+## 3. aws route53 get-health-check-status — verify the new target
+\`\`\`bash
+aws route53 get-health-check-status --health-check-id abc123de-failover
+\`\`\`
+Confirms which endpoint Route 53 currently considers healthy. Do NOT declare the failover complete until this reports the standby region as healthy.
+
+## Tie it back to RTO and RPO
+- DNS propagation (TTL + resolver cache convergence) is the dominant contributor to **RTO** after you flip the record — keep short TTLs on failover records so resolvers pick up the change quickly.
+- Async replication lag between the primary and the standby sets your **RPO** — any writes committed just before the failure that have not yet replicated are lost. The faster you detect and drain, the smaller the loss.
+
+> 💡 **Operator order**: drain nodes (stop new load landing on the bad region) → flip DNS (send traffic to the standby) → verify health (confirm the standby is serving). Skip any step and you either lose traffic or declare victory too early.
+`,
+  },
 ];
 
 export const PHASE_8_QUESTS: Quest[] = [
@@ -532,17 +578,72 @@ export const PHASE_8_QUESTS: Quest[] = [
     ],
   },
 
+  /* ---- Lesson: DR ops ---- */
+  {
+    id: 'q-8-lesson-dr-ops',
+    type: 'lesson',
+    title: 'Disaster Recovery Ops CLI',
+    phaseId: 'phase-8',
+    order: 5,
+    xpReward: 100,
+    conceptId: 'c-8-dr-ops',
+    prerequisites: ['q-8-lesson-multiregion'],
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'What does `kubectl drain <node>` do?',
+        options: [
+          'It deletes the node from the cluster',
+          'It evicts pods from the node and marks it unschedulable so the node can be taken down for maintenance',
+          'It restarts every pod currently running on the node',
+          'It scales the deployment up on that node',
+        ],
+        correctIndex: 1,
+        explanation:
+          'Drain evicts every pod from the node and cordons it (no new pods schedule there). Combined with --ignore-daemonsets and --delete-emptydir-data, it is the safe way to empty a node before maintenance. Bring it back later with kubectl uncordon.',
+      },
+      {
+        id: 'q2',
+        prompt:
+          'Which command flips a Route 53 DNS record to point traffic at the standby region during failover?',
+        options: [
+          'aws route53 get-health-check-status',
+          'aws ec2 allocate-address',
+          'aws route53 change-resource-record-sets --hosted-zone-id <id> --change-batch file://<file>',
+          'kubectl uncordon <node>',
+        ],
+        correctIndex: 2,
+        explanation:
+          'change-resource-record-sets is the Route 53 primitive that updates DNS records via a change-batch JSON document. Pointing the record at the standby region is what shifts live traffic there.',
+      },
+      {
+        id: 'q3',
+        prompt:
+          'After flipping DNS to the standby region, how do you verify Route 53 sees the new target as healthy?',
+        options: [
+          'kubectl drain the primary nodes',
+          'aws route53 get-health-check-status --health-check-id <id>',
+          'aws ec2 describe-instances',
+          'Ping the load balancer once from your laptop',
+        ],
+        correctIndex: 1,
+        explanation:
+          'get-health-check-status reports which endpoint Route 53 currently considers healthy. Do not declare the failover complete until this command shows the standby region as healthy.',
+      },
+    ],
+  },
+
   /* ---- 5. Command Lab: failover ---- */
   {
     id: 'q-8-command-failover',
     type: 'command',
     title: 'Command Lab: Regional Failover',
     phaseId: 'phase-8',
-    order: 5,
+    order: 6,
     xpReward: 150,
     intro:
       'Region us-east-1 is degraded. You are on-call. Drain its Kubernetes nodes and flip DNS traffic to the ap-southeast-1 standby using the AWS / kubectl CLIs.',
-    prerequisites: ['q-8-lesson-consensus'],
+    prerequisites: ['q-8-lesson-dr-ops'],
     steps: [
       {
         prompt:
@@ -585,7 +686,7 @@ export const PHASE_8_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Architecture: Multi-Region Resilient Backend',
     phaseId: 'phase-8',
-    order: 6,
+    order: 7,
     xpReward: 300,
     brief:
       'Design a multi-region backend for a global notifications service: 40,000 rps at 95% reads, p95 latency under 80 ms, and 99.99% availability (four 9s — a CDN on the path caps you just under five, so design the origin path for four), within $8,000/month. Serve users from edge caches in every region; replicate writes through a queue; choose a database that scales horizontally across regions.',
@@ -615,7 +716,7 @@ export const PHASE_8_QUESTS: Quest[] = [
     type: 'incident',
     title: 'Incident: Split-Brain During Partition',
     phaseId: 'phase-8',
-    order: 7,
+    order: 8,
     xpReward: 250,
     failureDescription:
       'At 09:17 a network partition isolates two of your five etcd nodes (a Raft consensus cluster storing service config) from the other three. The 2-node minority has lost contact with the leader and cannot reach quorum; clients routed to it are timing out.',
@@ -704,7 +805,7 @@ export const PHASE_8_QUESTS: Quest[] = [
     type: 'architecture',
     title: 'Capstone: Global Multi-Region System',
     phaseId: 'phase-8',
-    order: 8,
+    order: 9,
     xpReward: 500,
     brief:
       'You are the staff architect. Design a global multi-region system for 10M users at four-9s (99.99%) uptime. Target: 50,000 rps (97% reads), p95 latency under 120 ms (global cross-region adds round-trip time), under $10,000/month. Use a CDN at the edge for reads, regional app clusters with many replicas, a globally-replicated NoSQL store, and a cache to absorb the read hot path. The queue decouples cross-region writes.',

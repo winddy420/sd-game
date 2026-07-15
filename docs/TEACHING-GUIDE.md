@@ -4,7 +4,7 @@
 >
 > ข้อมูลทั้งหมดสกัดจาก source จริงใน `packages/content/src/phases/` (commit `f862885`) — ไม่ invent
 >
-> **ภาพรวม**: 8 phases · 37 concepts · 69 quests (4 ประเภท: lesson / architecture / incident / command) · Career RPG Junior → Staff Architect · บริษัทโต 10 → 10M users
+> **ภาพรวม**: 8 phases · 42 concepts · 77 quests (4 ประเภท: lesson / architecture / incident / command) · Career RPG Junior → Staff Architect · บริษัทโต 10 → 10M users
 >
 > **เนื้อหาใหม่ (M3/M4)**: Phase 4 เพิ่ม `c-4-estimation` (back-of-envelope) + `c-4-cost` (cost modeling) พร้อม lesson · Phase 3 เพิ่ม `q-3-arch-writes` (NoSQL write-throughput, Cassandra ชนะบน write-heavy) · Phase 7 เพิ่ม arch quest ที่ 2 `q-7-arch-rollout` + แก้ recall quiz Docker/k8s เป็น scenario · incident P6/P7/P8 เป็น multi-step · comic distractors แก้เป็น plausible-wrong · XP curve rescale ให้ Staff (Lv 41) reachable · cost caps ทั้ง 16 รัดกุดขึ้น (min×1.3) · `q-8-arch-multiregion` ลดจาก 5-nines เป็น 4-nines (cdn บน path ทำ 5-nines เป็นไปไม่ได้)
 
@@ -23,7 +23,7 @@
 
 # Phase 1 — Networking Foundations (Junior)
 
-**บริษัท: 10 → 1K users** · Concepts 5 · Quests 9
+**บริษัท: 10 → 1K users** · Concepts 6 · Quests 10
 
 แนวคิดหลัก: HTTP, TCP/UDP, DNS, CDN, API styles — พื้นฐานว่า internet ส่งข้อมูลกันยังไง
 
@@ -33,6 +33,7 @@
 3. DNS — domain → IP resolution chain
 4. CDN & Latency — edge caching
 5. REST vs gRPC vs GraphQL — API style selection
+6. Networking CLI Tools — ping/dig/curl/traceroute CLI debugging
 
 ## เฉลย Lesson Quizzes
 
@@ -64,12 +65,18 @@
 3. ✅ **Client queries exactly the fields it needs** — solves over/under-fetch
 4. ✅ **Protocol Buffers** — binary over HTTP/2
 
+### q-1-lesson-networking-cli (Networking CLI Tools)
+1. ✅ **dig api.example.com** — `dig`/`nslookup` ถาม DNS คืน A record (IP ที่ domain ชี้)
+2. ✅ **Sends a HEAD request and prints only the status line + headers** — `-I` (capital i) เช็ค status โดยไม่โหลด body
+3. ✅ **Every router (hop) between you and the host, with per-hop latency** — traceroute บอก packet ตายที่ hop ไหน
+4. ✅ **ping** — เริ่มจาก reachability ก่อน แล้วค่อย dig → curl → traceroute
+
 ## เฉลย Command Lab: q-1-command-tools (Networking CLI)
 1. `dig api.example.com` (หรือ `nslookup`) — DNS lookup
 2. `curl -I https://api.example.com` (`-I` = HEAD, headers only)
 3. `traceroute api.example.com` (หรือ `mtr`)
 
-⚠️ **reviewer note**: patterns ค่อนข้างเข้มงวด (ต้องตรง `api.example.com`); ยอมรับหลาย tool (`dig`/`nslookup`, `traceroute`/`tracert`/`mtr`)
+⚠️ **reviewer note**: patterns ค่อนข้างเข้มงวด (ต้องตรง `api.example.com`); ยอมรับหลาย tool (`dig`/`nslookup`, `traceroute`/`tracert`/`mtr`); step 2 รับเพิ่ม `curl -sI` แล้ว (pattern `curl\s+.*-sI.*api\.example\.com`)
 
 ## เฉลย Incident: q-1-incident-dns (Site Unreachable)
 **อาการ**: 100% requests fail *ก่อน* ถึง app · app/DB idle · ทุก region พร้อมกัน
@@ -86,13 +93,14 @@
 
 # Phase 2 — Backend Engineering (Junior)
 
-**1K → 10K users** · Concepts 4 · Quests 8
+**1K → 10K users** · Concepts 5 · Quests 9
 
 ## Concepts
 1. REST API Design — idempotency, versioning, status codes
 2. Authentication — JWT vs sessions vs OAuth
 3. Rate Limiting — token vs leaky bucket
 4. Web Security — OWASP, CORS, CSP
+5. Docker & Service Containers — build/run/port-mapping/logs
 
 ## เฉลย Lesson Quizzes
 
@@ -121,6 +129,11 @@
 4. ✅ **Wildcard + credentials rejected** by Fetch spec — ต้อง echo specific origin
 
 ⚠️ **reviewer note Q2 (CORS)**: คำอธิบาย "bound to client_secret" พูดถึง authorization code ไม่ใช่ตัว code เอง — ถูก conceptually แต่อาจสับสนเล็กน้อย
+
+### q-2-lesson-docker-basics (Docker & Service Containers)
+1. ✅ **Maps host port 8080 onto container port 8080** — `-p host:container` port แรกที่เครื่องเรา ที่สองใน container
+2. ✅ **Runs the container in the background (detached)** — `-d` รันเบื้องหลัง คืน prompt ทันที
+3. ✅ **docker ps** — แสดง container ที่กำลังรัน (เพิ่ม `-a` รวม stopped)
 
 ## เฉลย Command Lab: q-2-command-docker-build (Build & Run with Docker)
 1. `docker build -t sdgame/api:v1 .`
@@ -200,13 +213,14 @@
 
 # Phase 4 — Caching & Performance (Mid)
 
-**100K → 500K users** · Concepts 4 · Quests 8
+**100K → 500K users** · Concepts 5 · Quests 9
 
 ## Concepts
 1. Cache Strategies — cache-aside/read-through/write-through/write-back
 2. Cache Invalidation & Eviction — TTL, LRU/LFU
 3. Distributed Caching — Redis cluster, stampede
 4. CDN Caching & Hit-Ratio Economics
+5. Redis CLI Basics — SET/GET/INFO, TTL (EX), key namespacing
 
 ## เฉลย Lesson Quizzes
 
@@ -236,6 +250,11 @@
 
 ⚠️ **reviewer note**: concept c-4-invalidation เคยเขียนว่า "Redis default allkeys-lru" ผิด (จริงๆ default = `noeviction`) — **แก้แล้ว**
 
+### q-4-lesson-redis-cli (Redis CLI Basics)
+1. ✅ **Makes the key expire after 300 seconds (a 5-minute TTL)** — `EX` ตั้ง TTL เป็นวินาที; หมดอายุ Redis ลบให้เอง
+2. ✅ **GET user:42** — คืนค่าที่เก็บไว้ หรือ `(nil)` ถ้า miss/หมดอายุ
+3. ✅ **INFO stats** — ดู `keyspace_hits`/`keyspace_misses` เป็นตัวเลข hit ratio
+
 ## เฉลย Command Lab: q-4-command-redis (Redis CLI)
 1. `SET user:42 '{"id":42,"name":"ada"}' EX 300`
 2. `GET user:42`
@@ -258,13 +277,14 @@
 
 # Phase 5 — System Design Patterns (Senior)
 
-**500K → 1M users** · Concepts 4 · Quests 8
+**500K → 1M users** · Concepts 5 · Quests 9
 
 ## Concepts
 1. Load Balancing — L4/L7, algorithms
 2. Message Queues — Kafka vs RabbitMQ
 3. Microservices vs Monolith
 4. Event-Driven Architecture
+5. Kafka CLI Basics — topics/producer/consumer CLI
 
 ## เฉลย Lesson Quizzes
 
@@ -292,6 +312,11 @@
 3. ✅ **Nothing in producer — just subscribe** (superpower ของ event-driven)
 4. ✅ **Synchronous call for immediate answer** — events สำหรับ downstream reactions
 
+### q-5-lesson-kafka-cli (Kafka CLI Basics)
+1. ✅ **--replication-factor** — จำนวน copy ของ topic (durability); `--partitions` คือ parallelism ไม่ใช่ copy
+2. ✅ **It replays every message in the topic from the earliest offset** — `--from-beginning` อ่าน history ทั้งหมดที่ retain ไว้
+3. ✅ **kafka-topics --create** — ใช้ `kafka-topics` จัดการ topic ต่างจาก producer/consumer
+
 ## เฉลย Command Lab: q-5-command-kafka (Kafka CLI)
 1. `kafka-topics --bootstrap-server localhost:9092 --create --topic orders --partitions 3 --replication-factor 1`
 2. `echo '{"order_id":42}' | kafka-console-producer --bootstrap-server localhost:9092 --topic orders`
@@ -314,13 +339,14 @@
 
 # Phase 6 — Scalability & Reliability (Senior)
 
-**1M → 5M users** · Concepts 4 · Quests 8
+**1M → 5M users** · Concepts 5 · Quests 9
 
 ## Concepts
 1. Horizontal vs Vertical Scaling
 2. Auto-Scaling — policies, cooldown, predictive
 3. Resilience — circuit breaker, bulkhead, backpressure
 4. Chaos Engineering & Cascading Failures
+5. Kubernetes Scaling CLI — kubectl scale vs autoscale (HPA)
 
 ## เฉลย Lesson Quizzes
 
@@ -347,6 +373,11 @@
 2. ✅ **Chaos engineering = deliberate failure injection**
 3. ✅ **Retry storms** (thundering herd amplifier)
 4. ✅ **Define steady-state hypothesis first**
+
+### q-6-lesson-kubectl-autoscaling (Kubernetes Scaling CLI)
+1. ✅ **`kubectl scale` sets a fixed count once; `kubectl autoscale` creates an HPA that adjusts pods automatically** — scale = manual ครั้งเดียว, autoscale = สร้าง controller ตาม metric
+2. ✅ **The floor and ceiling on the replica count — never fewer than 3 or more than 10 pods** — `--min`/`--max` ล็อคขนาด fleet
+3. ✅ **Keeps average CPU around 70 percent, adding pods when it rises and removing when it falls** — target-tracking ไม่ใช่ hard cap บน pod เดียว
 
 ## เฉลย Command Lab: q-6-command-autoscale (kubectl autoscale)
 1. `kubectl get deployment api`
@@ -433,13 +464,14 @@
 
 # Phase 8 — Advanced (Staff Architect)
 
-**8M → 10M users** · Concepts 4 · Quests 8
+**8M → 10M users** · Concepts 5 · Quests 9
 
 ## Concepts
 1. Multi-Region Architectures — active-active/passive, RTO/RPO
 2. Database Internals — B-trees vs LSM-trees
 3. Consensus — Raft/Paxos, quorum, split-brain
 4. Distributed Transactions — 2PC/SAGA/outbox, serverless/edge
+5. Disaster Recovery Ops CLI — kubectl drain, Route 53 failover
 
 ## เฉลย Lesson Quizzes
 
@@ -468,6 +500,11 @@
 2. ✅ **SAGA: gives up isolation, compensating transactions**
 3. ✅ **Transactional outbox + CDC** (atomic DB write + outbox row → publish)
 4. ✅ **Edge ~5-20ms แต่ state authoritative ยังอยู่ regional**
+
+### q-8-lesson-dr-ops (Disaster Recovery Ops CLI)
+1. ✅ **Evicts pods and marks the node unschedulable for maintenance** — `kubectl drain` ล้าง pod + cordon; `uncordon` คืนทีหลัง
+2. ✅ **aws route53 change-resource-record-sets --hosted-zone-id ... --change-batch file://...** — primitive ที่ย้าย DNS ไป standby region
+3. ✅ **aws route53 get-health-check-status --health-check-id <id>** — ยืนยัน standby ปกติก่อน declare failover สำเร็จ
 
 ## เฉลย Command Lab: q-8-command-failover (Regional Failover)
 1. `kubectl drain ip-10-0-3-42.ec2.internal --ignore-daemonsets --delete-emptydir-data`
