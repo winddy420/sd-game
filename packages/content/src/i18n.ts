@@ -62,10 +62,10 @@ export function tr(
 
 /* ----------------------------- key generation ----------------------------- */
 
-/** Walk the curriculum and emit every translatable key + its English value.
- *  Concept `body` (Markdown) is intentionally excluded — kept English per the
- *  agreed scope. This same scheme is used by the localized* resolvers, so keys
- *  can never drift from what the resolver looks up. */
+/** Walk the curriculum and emit every translatable key + its English value,
+ *  including concept `body` (Markdown lesson text). This same scheme is used
+ *  by the localized* resolvers, so keys can never drift from what the resolver
+ *  looks up. */
 export function generateContentKeys(c: LocalizableCurriculum): ContentKey[] {
   const out: ContentKey[] = [];
 
@@ -85,6 +85,7 @@ export function generateContentKeys(c: LocalizableCurriculum): ContentKey[] {
   for (const con of c.concepts) {
     out.push({ key: `concept:${con.id}:title`, en: con.title });
     out.push({ key: `concept:${con.id}:summary`, en: con.summary });
+    out.push({ key: `concept:${con.id}:body`, en: con.body });
   }
   for (const q of c.quests) {
     out.push({ key: `quest:${q.id}:title`, en: q.title });
@@ -160,7 +161,7 @@ export function localizedConcept(c: Concept, locale: Locale, thai?: Record<strin
     ...c,
     title: tr(`concept:${c.id}:title`, c.title, locale, thai),
     summary: tr(`concept:${c.id}:summary`, c.summary, locale, thai),
-    // body stays English per scope
+    body: tr(`concept:${c.id}:body`, c.body, locale, thai),
   };
 }
 
